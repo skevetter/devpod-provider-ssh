@@ -1,23 +1,85 @@
-package ssh
+package main
 
 import (
-	"bytes"
-	"context"
+	"errors"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"os/exec"
-	"path"
-	"path/filepath"
+	"strconv"
 	"strings"
-	"time"
 
-	"github.com/kballard/go-shellquote"
+	"github.com/kevinburke/ssh_config"
 	"github.com/loft-sh/devpod-provider-ssh/pkg/options"
 	"github.com/loft-sh/devpod/pkg/log"
-	"github.com/loft-sh/devpod/pkg/ssh"
+	"github.com/melbahja/goph"
+	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
+
+type OperatingSystem int
+
+const (
+	DefaultSSHPort      = "22"
+	DefaultIdentityFile = "~/.ssh/id_ed25519"
+)
+
+const (
+	OSLinux OperatingSystem = iota
+	OSWindows
+	OSMac
+	OSUnknown
+)
+
+var OperatingSystems = map[OperatingSystem]string{
+	OSLinux:   "Linux",
+	OSWindows: "Windows",
+	OSMac:     "macOS",
+	OSUnknown: "Unknown",
+}
+
+var IdentityFileProviders = &[]string{
+	"~/.ssh/id_ed25519",
+	"~/.ssh/id_ecdsa",
+	"~/.ssh/id_rsa",
+}
+
+func (os OperatingSystem) String() string {
+	if name, ok := OperatingSystems[os]; ok {
+		return name
+	}
+	return OperatingSystems[OSUnknown]
+}
+
+type SshHostConfigKey int
+
+const (
+	SshHostConfigKeyHostname SshHostConfigKey = iota
+	SshHostConfigKeyUser
+	SshIdentityFile
+)
+
+var SshHostConfigKeyMap = map[SshHostConfigKey]string{
+	SshHostConfigKeyHostname: "Hostname",
+	SshHostConfigKeyUser:     "User",
+	SshIdentityFile:          "IdentityFile",
+}
+
+func (hk SshHostConfigKey) String() string {
+	return SshHostConfigKeyMap[hk]
+}
+
+var Overrides *options.Options = &options.Options{
+	DockerPath: "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+	AgentPath:  "C:\\Windows\\System32\\OpenSSH\\ssh-agent.exe",
+	// AgentPath:     "/usr/bin/ssh-agent",
+	// User: "ocean_trader",
+	Host: "windows",
+	// Host: "vps1",
+	// Port: "4422",
+	// ExtraFlags:    "",
+	// UseBuiltinSSH: false,
+}
 
 type SSHProvider struct {
 	Config           *options.Options
@@ -25,282 +87,328 @@ type SSHProvider struct {
 	WorkingDirectory string
 }
 
-func NewProvider(logs log.Logger) (*SSHProvider, error) {
-	config, err := options.FromEnv()
+var DefaultProvider *SSHProvider = &SSHProvider{
+	Config:           Overrides,
+	Log:              log.Default,
+	WorkingDirectory: "/home/user",
+}
+
+func trimWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
+func resolveOperatingSystemType(client *goph.Client) (OperatingSystem, error) {
+	out, err := client.Run("uname -s")
+	if err == nil {
+		s := strings.ToLower(strings.TrimSpace(string(out)))
+		switch {
+		case strings.Contains(s, "linux"):
+			return OSLinux, nil
+		case strings.Contains(s, "darwin"):
+			return OSMac, nil
+		}
+	}
+
+	// Windows probes
+	if out, err = client.Run(`cmd /c "ver"`); err == nil {
+		if strings.Contains(strings.ToLower(string(out)), "windows") {
+			return OSWindows, nil
+		}
+	}
+	if out, err = client.Run(`powershell -NoProfile -Command "[System.Environment]::OSVersion.VersionString"`); err == nil {
+		if strings.Contains(strings.ToLower(string(out)), "windows") {
+			return OSWindows, nil
+		}
+	}
+
+	return OSUnknown, fmt.Errorf("could not determine remote OS")
+}
+
+func buildAuth(identityCandidates []string) (goph.Auth, error) {
+	// Prefer ssh-agent if available
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		if a, err := goph.UseAgent(); err == nil {
+			return a, nil
+		} else {
+			log.Default.Debugf("SSH agent not usable: %v", err)
+		}
+	}
+	for _, f := range identityCandidates {
+		path, err := getIdentityFile(f)
+		if err != nil || path == "" {
+			if err != nil {
+				log.Default.Debugf("Identity candidate skipped %s: %v", f, err)
+			}
+			continue
+		}
+		if auth, err := goph.Key(path, ""); err == nil {
+			return auth, nil
+		} else {
+			log.Default.Debugf("Key not usable %s: %v", path, err)
+		}
+	}
+	return nil, fmt.Errorf("no usable SSH auth found")
+}
+
+func getSSHPortOrDefault(portStr string) (uint, error) {
+	portStr = strings.TrimSpace(portStr)
+	if portStr == "" {
+		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
+		}
+		return uint(p), nil
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil || port == 0 {
+		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
+		}
+		log.Default.Warnf("Invalid port %s. Falling back to default SSH port: %d", portStr, p)
+		return uint(p), nil
+	}
+	return uint(port), nil
+}
+
+// parseExtraFlagsSet normalizes EXTRA_FLAGS into a set for O(1) checks.
+// Flags can be comma or whitespace separated, case-insensitive.
+func parseExtraFlagsSet(flags string) map[string]bool {
+	set := map[string]bool{}
+	if flags == "" {
+		return set
+	}
+	f := func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' }
+	for _, t := range strings.FieldsFunc(flags, f) {
+		t = strings.TrimSpace(strings.ToLower(t))
+		if t != "" {
+			set[t] = true
+		}
+	}
+	return set
+}
+
+func SSHClient(provider *SSHProvider) (*goph.Client, error) {
+	host := provider.Config.Host
+	remoteSSHPort, err := getSSHPortOrDefault(provider.Config.Port)
+	if err != nil {
+		return nil, fmt.Errorf("resolve port: %w", err)
+	}
+
+	var cfg *ssh_config.Config
+	if host != "" {
+		if c, err := getSshHostConfiguration(host); err == nil {
+			cfg = c
+		} else {
+			provider.Log.Debugf("ssh -G %q failed: %v (falling back to explicit config)", host, err)
+		}
+	}
+
+	// Resolve identity candidates: ssh config IdentityFile (may be multiple), then default
+	// ssh -G IdentityFile may contain multiple paths
+	var identityCandidates []string
+	if cfg != nil {
+		if id, _ := cfg.Get(host, SshIdentityFile.String()); id != "" {
+			files := strings.Fields(id)
+			identityCandidates = append(identityCandidates, files...)
+		}
+	}
+	identityCandidates = append(identityCandidates, DefaultIdentityFile)
+
+	auth, err := buildAuth(identityCandidates)
 	if err != nil {
 		return nil, err
 	}
 
-	// create provider
-	provider := &SSHProvider{
-		Config: config,
-		Log:    logs,
+	remoteAddr := provider.Config.Host
+	if cfg != nil {
+		if v, _ := cfg.Get(host, SshHostConfigKeyHostname.String()); v != "" {
+			remoteAddr = v
+		}
+	}
+	if remoteAddr == "" {
+		return nil, fmt.Errorf("no remote address provided (Host or ssh config Hostname required)")
 	}
 
-	return provider, nil
+	remoteUser := provider.Config.User
+	if cfg != nil {
+		if v, _ := cfg.Get(host, SshHostConfigKeyUser.String()); v != "" {
+			remoteUser = v
+		}
+	}
+	if remoteUser == "" {
+		return nil, fmt.Errorf("no remote user provided (User or ssh config User required)")
+	}
+
+	hostKeyCB, err := createHostKeyVerificationCallback(provider)
+	if err != nil {
+		return nil, fmt.Errorf("known hosts: %w", err)
+	}
+
+	return goph.NewConn(&goph.Config{
+		Auth:     auth,
+		User:     remoteUser,
+		Addr:     remoteAddr,
+		Port:     remoteSSHPort,
+		Callback: hostKeyCB,
+	})
 }
 
-func returnSSHError(provider *SSHProvider, command string) error {
-	sshError := "Please make sure you have configured the correct SSH host\nand the following command can be executed on your system:\n"
-
-	sshcmd, err := getSSHCommand(provider)
+func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
+	client, err := SSHClient(provider)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
-
-	return fmt.Errorf("%s ssh %s %s", sshError, strings.Join(sshcmd, " "), command)
+	defer client.Close()
+	out, err := client.Run(command)
+	if err != nil {
+		return nil, fmt.Errorf("command execution failed: %w", err)
+	}
+	return out, nil
 }
 
-func getSSHCommand(provider *SSHProvider) ([]string, error) {
-	result := []string{"-oStrictHostKeyChecking=no", "-oBatchMode=yes"}
+func initialize(provider *SSHProvider) error {
+	options.OverrideSystemDefaults(provider.Config)
 
-	if provider.Config.Port != "22" {
-		result = append(result, []string{"-p", provider.Config.Port}...)
-	}
-
-	if provider.Config.ExtraFlags != "" {
-		flags, err := shellquote.Split(provider.Config.ExtraFlags)
-		if err != nil {
-			return nil, fmt.Errorf("error managing EXTRA_ARGS, %v", err)
-		}
-
-		result = append(result, flags...)
-	}
-
-	result = append(result, provider.Config.Host)
-	return result, nil
-}
-
-func execSSHCommand(provider *SSHProvider, command string, output io.Writer) error {
-	if provider.Config.UseBuiltinSSH {
-		// get ssh config for host
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-		defer cancel()
-		sshConfig, err := exec.CommandContext(ctx, "ssh", "-G", provider.Config.Host).Output()
-		if err != nil {
-			return fmt.Errorf("read ssh config for host %s: %w", provider.Config.Host, err)
-		}
-		hostname, user, port, identityfile := parseConfig(string(sshConfig))
-		if hostname == "" || user == "" || port == "" {
-			return fmt.Errorf("resolve ssh config. Hostname='%s', User='%s', Port='%s'", hostname, user, port)
-		}
-
-		// expand identityfile path
-		if strings.HasPrefix(identityfile, "~") {
-			identityfile = strings.Replace(identityfile, "~", "$userprofile", 1)
-			identityfile = os.ExpandEnv(identityfile)
-		}
-		abs, err := filepath.Abs(identityfile)
-		if err != nil {
-			return fmt.Errorf("absolute filepath: %w", err)
-		}
-		key, err := os.ReadFile(abs)
-		if err != nil {
-			return fmt.Errorf("read identifiyfile: %w", err)
-		}
-
-		if provider.Config.Port != "" {
-			port = provider.Config.Port
-		}
-		// create ssh session
-		addr := net.JoinHostPort(hostname, port)
-		client, err := ssh.NewSSHClient(user, addr, key)
-		if err != nil {
-			return fmt.Errorf("create ssh client: %w", err)
-		}
-		sess, err := client.NewSession()
-		if err != nil {
-			return fmt.Errorf("create ssh session: %w", err)
-		}
-		sess.Stdin = os.Stdin
-		sess.Stdout = output
-
-		return sess.Run(command)
-	}
-
-	commandToRun, err := getSSHCommand(provider)
+	client, err := SSHClient(provider)
 	if err != nil {
-		return err
+		return fmt.Errorf("create ssh client: %w", err)
 	}
+	defer client.Close()
 
-	commandToRun = append(commandToRun, command)
-
-	var stderrBuf bytes.Buffer
-
-	cmd := exec.Command("ssh", commandToRun...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = output
-	cmd.Stderr = io.Writer(&stderrBuf)
-
-	err = cmd.Run()
+	remoteOS, err := resolveOperatingSystemType(client)
 	if err != nil {
-		provider.Log.Error(stderrBuf.String())
-		return err
+		return fmt.Errorf("detect OS: %w", err)
+	}
+	provider.Log.Infof("Detected remote OS: %s", remoteOS)
+
+	linuxCommands := []string{
+		"uname -s",
+		"lsb_release -is || true",
+	}
+	if provider.Config.DockerPath != "" {
+		linuxCommands = append(linuxCommands, fmt.Sprintf("%s ps -qa", provider.Config.DockerPath))
 	}
 
-	// A non-POSIX shell has been detected: falling back to copy and execute scripts
-	if strings.Contains(stderrBuf.String(), "fish: Unsupported") {
-		provider.Log.Warn("A non-POSIX shell has been detected: falling back to copy and execute scripts")
-
-		return copyAndExecSSHCommand(provider, command, output)
+	windowsCommands := []string{
+		`cmd /c "ver"`,
+		`powershell -NoProfile -Command "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption"`,
+	}
+	if provider.Config.DockerPath != "" {
+		windowsCommands = append(windowsCommands, fmt.Sprintf("\"%s\" ps -qa", provider.Config.DockerPath))
 	}
 
-	return err
-}
-
-func copyAndExecSSHCommand(provider *SSHProvider, command string, output io.Writer) error {
-	commandToRun, err := getSSHCommand(provider)
-	if err != nil {
-		return err
-	}
-
-	script, err := copyCommandToRemote(provider, command)
-	if err != nil {
-		return err
-	}
-
-	commandToRun = append(commandToRun, []string{
-		"/bin/sh", script, ";", "rm", "-f", script,
-	}...)
-
-	cmd := exec.Command("ssh", commandToRun...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = output
-	cmd.Stderr = os.Stderr
-
-	return cmd.Run()
-}
-
-func copyCommandToRemote(provider *SSHProvider, command string) (string, error) {
-	script, err := os.CreateTemp("", "devpod-command-*")
-	if err != nil {
-		return "", err
-	}
-	defer func() {
-		_ = script.Close()
-		_ = os.Remove(script.Name())
-	}()
-
-	commandToRun, err := getSCPCommand(provider, script.Name())
-	if err != nil {
-		return "", err
-	}
-
-	_, err = script.WriteString(command)
-	if err != nil {
-		return "", err
-	}
-
-	return script.Name(), exec.Command("scp", commandToRun...).Run()
-}
-
-func getSCPCommand(provider *SSHProvider, sourcefile string) ([]string, error) {
-	result := []string{"-oStrictHostKeyChecking=no", "-oBatchMode=yes"}
-
-	if provider.Config.Port != "22" {
-		result = append(result, []string{"-p", provider.Config.Port}...)
-	}
-
-	if provider.Config.ExtraFlags != "" {
-		flags, err := shellquote.Split(provider.Config.ExtraFlags)
-		if err != nil {
-			return nil, fmt.Errorf("error managing EXTRA_ARGS, %v", err)
+	switch remoteOS {
+	case OSLinux:
+		provider.Log.Infof("Running initialization commands for Linux")
+		for _, cmd := range linuxCommands {
+			out, err := client.Run(cmd)
+			if err != nil {
+				provider.Log.Errorf("Failed: %s: %v", cmd, err)
+				continue
+			}
+			provider.Log.Infof("Output: %s", trimWhitespace(string(out)))
 		}
-
-		result = append(result, flags...)
-	}
-
-	destfile := "/tmp/" + filepath.Base(sourcefile)
-
-	result = append(result, sourcefile)
-	result = append(result, provider.Config.Host+":"+destfile)
-	return result, nil
-}
-
-func Init(provider *SSHProvider) error {
-	out := new(bytes.Buffer)
-	// check that we can do outputs
-	err := execSSHCommand(provider, "echo Devpod Test", out)
-	if err != nil {
-		return returnSSHError(provider, "echo Devpod Test")
-	}
-	if out.String() != "Devpod Test\n" {
-		return fmt.Errorf("error: ssh output mismatch")
-	}
-
-	// We only support running on Linux ssh servers
-	out = new(bytes.Buffer)
-	err = execSSHCommand(provider, "uname", out)
-	if err != nil {
-		return returnSSHError(provider, "uname")
-	}
-	if out.String() != "Linux\n" {
-		fmt.Println(out.String())
-		return fmt.Errorf("error: SSH provider only works on Linux servers")
-	}
-
-	// If we're root, we won't have problems
-	out = new(bytes.Buffer)
-	err = execSSHCommand(provider, "id -ru", out)
-	if err != nil {
-		return returnSSHError(provider, "id -ru")
-	}
-	if out.String() == "0\n" {
-		return nil
-	}
-
-	// check that we have access to AGENT_PATH
-	out = new(bytes.Buffer)
-	agentDir := path.Dir(provider.Config.AgentPath)
-	err1 := execSSHCommand(provider, "mkdir -p "+agentDir, out)
-	err2 := execSSHCommand(provider, "test -w "+agentDir, out)
-	if err1 != nil || err2 != nil {
-		err = execSSHCommand(provider, "sudo -nl", out)
-		if err != nil {
-			return fmt.Errorf("%s is not writable, passwordless sudo or root user required", agentDir)
+	case OSWindows:
+		provider.Log.Infof("Running initialization commands for Windows")
+		for _, cmd := range windowsCommands {
+			out, err := client.Run(cmd)
+			if err != nil {
+				provider.Log.Errorf("Failed: %s: %v", cmd, err)
+				continue
+			}
+			provider.Log.Infof("Output: %s", trimWhitespace(string(out)))
 		}
+	default:
+		return fmt.Errorf("unsupported or unknown remote OS")
 	}
-
-	// check that we have access to DOCKER_PATH
-	err = execSSHCommand(provider, provider.Config.DockerPath+" ps", out)
-	if err != nil {
-		err = execSSHCommand(provider, "sudo -nl", out)
-		if err != nil {
-			return fmt.Errorf("%s not found, passwordless sudo or root user required. If using another user please add to the docker group", provider.Config.DockerPath)
-		}
-	}
-
 	return nil
 }
 
-func Command(provider *SSHProvider, command string) error {
-	return execSSHCommand(provider, command, os.Stdout)
-}
+func addUnknownHostsCallback(host string, remote net.Addr, key ssh.PublicKey) error {
+	hostFound, err := goph.CheckKnownHost(host, remote, key, "")
 
-func parseConfig(config string) (hostname string, user string, port string, identityfile string) {
-	for _, line := range strings.Split(config, "\n") {
-		fields := strings.Fields(line)
-		if len(fields) != 2 {
-			continue
-		}
-		if fields[0] == "hostname" {
-			hostname = fields[1]
-			continue
-		}
-		if fields[0] == "user" {
-			user = fields[1]
-			continue
-		}
-		if fields[0] == "port" {
-			port = fields[1]
-			continue
-		}
-		// just take the first one
-		if fields[0] == "identityfile" && identityfile == "" {
-			identityfile = fields[1]
-			continue
-		}
+	// Host in known hosts but key mismatch => potential MITM
+	if hostFound && err != nil {
+		log.Default.Warnf("Host key mismatch for %s: %v", host, err)
+		return err
 	}
 
-	return hostname, user, port, identityfile
+	// If the host is not found in known_hosts, add it
+	if !hostFound && err != nil {
+		var ke *knownhosts.KeyError
+		if errors.As(err, &ke) && (ke == nil || len(ke.Want) == 0) {
+			log.Default.Warnf("Host %s is not in known_hosts, adding it", host)
+			if err := goph.AddKnownHost(host, remote, key, ""); err != nil {
+				return fmt.Errorf("failed to add host %s to known_hosts: %w", host, err)
+			}
+			log.Default.Infof("Host %s added to known_hosts", host)
+			return nil
+		}
+		return err
+	}
+	return nil
+}
+
+func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallback, error) {
+	flags := parseExtraFlagsSet(provider.Config.ExtraFlags)
+	if flags["addunknownhosts"] || flags["addunknownhost"] {
+		return addUnknownHostsCallback, nil
+	}
+	if flags["ignoreknownhosts"] || flags["strict_host_key_checking=no"] {
+		return ssh.InsecureIgnoreHostKey(), nil
+	}
+	callbackFn, err := goph.DefaultKnownHosts()
+	if err != nil {
+		return nil, fmt.Errorf("load known_hosts: %w", err)
+	}
+	return callbackFn, nil
+}
+
+func resolveHomeDirToAbs(path string) (string, error) {
+	if strings.HasPrefix(path, "~") {
+		homeDir, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("failed to get user home directory: %w", err)
+		}
+		return strings.Replace(path, "~", homeDir, 1), nil
+	}
+	return path, nil
+}
+
+func getIdentityFile(file string) (string, error) {
+	file, err := resolveHomeDirToAbs(file)
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
+	}
+	if file != "" {
+		if st, err := os.Stat(file); err == nil && !st.IsDir() {
+			return file, nil
+		}
+	}
+	for _, defaultFile := range *IdentityFileProviders {
+		defaultFile, err = resolveHomeDirToAbs(defaultFile)
+		if err != nil {
+			return "", fmt.Errorf("resolve default identity file: %w", err)
+		}
+		if st, err := os.Stat(defaultFile); err == nil && !st.IsDir() {
+			log.Default.Infof("Using default identity file: %s", defaultFile)
+			return defaultFile, nil
+		}
+		log.Default.Debugf("Default identity file does not exist: %s", defaultFile)
+	}
+	return "", fmt.Errorf("no identity file found")
+}
+
+func getSshHostConfiguration(host string) (*ssh_config.Config, error) {
+	bytes, err := exec.Command("ssh", "-G", host).Output()
+	if err != nil {
+		return nil, err
+	}
+	return ssh_config.Decode(strings.NewReader(string(bytes)))
+}
+
+func main() {
+	// Init(DefaultProvider)
+	initialize(DefaultProvider)
 }
