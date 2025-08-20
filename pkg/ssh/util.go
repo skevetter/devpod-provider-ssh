@@ -151,14 +151,7 @@ func getIdentityFile(file string) (string, error) {
 			return file, nil
 		}
 	}
-	for _, defaultFile := range DefaultIdentityFiles() {
-		if st, err := os.Stat(defaultFile); err == nil && !st.IsDir() {
-			log.Default.Debugf("Using default identity file: %s", defaultFile)
-			return defaultFile, nil
-		}
-		log.Default.Debugf("Default identity file does not exist: %s", defaultFile)
-	}
-	return "", fmt.Errorf("no identity file found")
+	return "", fmt.Errorf("identity file not found: %s", file)
 }
 
 func getSSHHostConfiguration(host string) (*ssh_config.Config, error) {
@@ -198,17 +191,17 @@ func resolveOperatingSystemType(client *goph.Client) (OperatingSystem, error) {
 
 func buildAuth(identityCandidates []string) (goph.Auth, error) {
 	for _, f := range identityCandidates {
-		path, err := getIdentityFile(f)
+		path, err := util.ResolveHomeDirToAbs(f)
 		if err != nil || path == "" {
-			if err != nil {
-				log.Default.Debugf("Identity candidate skipped %s: %v", f, err)
-			}
+			log.Default.Debugf("Identity candidate skipped %s: %v", f, err)
 			continue
 		}
-		if auth, err := goph.Key(path, ""); err == nil {
-			return auth, nil
-		} else {
-			log.Default.Debugf("Key not usable %s: %v", path, err)
+		if st, err := os.Stat(path); err == nil && !st.IsDir() {
+			if auth, err := goph.Key(path, ""); err == nil {
+				return auth, nil
+			} else {
+				log.Default.Debugf("Key not usable %s: %v", path, err)
+			}
 		}
 	}
 
@@ -219,13 +212,13 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 			log.Default.Debugf("SSH agent not usable: %v", err)
 		}
 	}
-	for _, f := range DefaultIdentityFiles() {
-		path, err := getIdentityFile(f)
-		if err != nil || path == "" {
-			continue
-		}
-		if auth, err := goph.Key(path, ""); err == nil {
-			return auth, nil
+
+	for _, path := range DefaultIdentityFiles() {
+		if st, err := os.Stat(path); err == nil && !st.IsDir() {
+			if auth, err := goph.Key(path, ""); err == nil {
+				log.Default.Debugf("Using default identity file: %s", path)
+				return auth, nil
+			}
 		}
 	}
 	return nil, fmt.Errorf("no usable SSH auth found")
