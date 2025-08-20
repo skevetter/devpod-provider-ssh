@@ -14,6 +14,7 @@ import (
 	"github.com/loft-sh/devpod/pkg/log"
 	"github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 )
 
 type OperatingSystem int
@@ -38,11 +39,9 @@ var OperatingSystems = map[OperatingSystem]string{
 }
 
 var IdentityFileProviders = &[]string{
-	"~/.ssh/id_rsa",
 	"~/.ssh/id_ed25519",
 	"~/.ssh/id_ecdsa",
-	"~/.ssh/id_xmss",
-	"~/.ssh/id_dsa",
+	"~/.ssh/id_rsa",
 }
 
 func (os OperatingSystem) String() string {
@@ -94,12 +93,6 @@ var DefaultProvider *SSHProvider = &SSHProvider{
 	WorkingDirectory: "/home/user",
 }
 
-// var osCommands = map[string][]string{
-// 	"Linux":   {"uname -s", "lsb_release -is"},
-// 	"macOS":   {"sw_vers -productName"},
-// 	"Windows": {`cmd /c "ver"`, `powershell -Command "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption"`},
-// }
-
 func trimWhitespace(s string) string {
 	return strings.Join(strings.Fields(s), " ")
 }
@@ -141,7 +134,13 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 		}
 	}
 	for _, f := range identityCandidates {
-		path := getIdentityFile(f)
+		path, err := getIdentityFile(f)
+		if err != nil || path == "" {
+			if err != nil {
+				log.Default.Debugf("Identity candidate skipped %s: %v", f, err)
+			}
+			continue
+		}
 		if auth, err := goph.Key(path, ""); err == nil {
 			return auth, nil
 		} else {
@@ -152,15 +151,41 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 }
 
 func getSSHPortOrDefault(portStr string) (uint, error) {
-	port, err := strconv.ParseUint(portStr, 10, 16)
-	if err != nil || port == 0 {
-		port, err = strconv.ParseUint(DefaultSSHPort, 10, 16)
+	portStr = strings.TrimSpace(portStr)
+	if portStr == "" {
+		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
 		if err != nil {
 			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
 		}
-		log.Default.Warnf("Invalid port %s. Falling back to default SSH port: %d", portStr, port)
+		return uint(p), nil
+	}
+	port, err := strconv.ParseUint(portStr, 10, 16)
+	if err != nil || port == 0 {
+		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
+		}
+		log.Default.Warnf("Invalid port %s. Falling back to default SSH port: %d", portStr, p)
+		return uint(p), nil
 	}
 	return uint(port), nil
+}
+
+// parseExtraFlagsSet normalizes EXTRA_FLAGS into a set for O(1) checks.
+// Flags can be comma or whitespace separated, case-insensitive.
+func parseExtraFlagsSet(flags string) map[string]bool {
+	set := map[string]bool{}
+	if flags == "" {
+		return set
+	}
+	f := func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' }
+	for _, t := range strings.FieldsFunc(flags, f) {
+		t = strings.TrimSpace(strings.ToLower(t))
+		if t != "" {
+			set[t] = true
+		}
+	}
+	return set
 }
 
 func SSHClient(provider *SSHProvider) (*goph.Client, error) {
@@ -180,10 +205,12 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 	}
 
 	// Resolve identity candidates: ssh config IdentityFile (may be multiple), then default
+	// ssh -G IdentityFile may contain multiple paths
 	var identityCandidates []string
 	if cfg != nil {
 		if id, _ := cfg.Get(host, SshIdentityFile.String()); id != "" {
-			identityCandidates = append(identityCandidates, id)
+			files := strings.Fields(id)
+			identityCandidates = append(identityCandidates, files...)
 		}
 	}
 	identityCandidates = append(identityCandidates, DefaultIdentityFile)
@@ -213,7 +240,10 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 		return nil, fmt.Errorf("no remote user provided (User or ssh config User required)")
 	}
 
-	hostKeyCB := createHostKeyVerificationCallback(provider)
+	hostKeyCB, err := createHostKeyVerificationCallback(provider)
+	if err != nil {
+		return nil, fmt.Errorf("known hosts: %w", err)
+	}
 
 	return goph.NewConn(&goph.Config{
 		Auth:     auth,
@@ -298,63 +328,76 @@ func initialize(provider *SSHProvider) error {
 func addUnknownHostsCallback(host string, remote net.Addr, key ssh.PublicKey) error {
 	hostFound, err := goph.CheckKnownHost(host, remote, key, "")
 
-	// Host in known hosts but key mismatch!
-	// Maybe because of MAN IN THE MIDDLE ATTACK!
+	// Host in known hosts but key mismatch => potential MITM
 	if hostFound && err != nil {
-		log.Default.Warnf("Possible MAN IN THE MIDDLE ATTACK. Host %s is in known hosts but key mismatch: %v", host, err)
+		log.Default.Warnf("Host key mismatch for %s: %v", host, err)
 		return err
 	}
 
-	if !hostFound && strings.Contains(err.Error(), "key is unknown") {
-		log.Default.Warnf("Host %s is not in known hosts, adding it", host)
-		if err := goph.AddKnownHost(host, remote, key, ""); err != nil {
-			return fmt.Errorf("failed to add host %s to known hosts: %w", host, err)
+	// If the host is not found in known_hosts, add it
+	if !hostFound && err != nil {
+		var ke *knownhosts.KeyError
+		if errors.As(err, &ke) && (ke == nil || len(ke.Want) == 0) {
+			log.Default.Warnf("Host %s is not in known_hosts, adding it", host)
+			if err := goph.AddKnownHost(host, remote, key, ""); err != nil {
+				return fmt.Errorf("failed to add host %s to known_hosts: %w", host, err)
+			}
+			log.Default.Infof("Host %s added to known_hosts", host)
+			return nil
 		}
-		log.Default.Infof("Host %s added to known hosts", host)
+		return err
 	}
 	return nil
 }
 
-func createHostKeyVerificationCallback(provider *SSHProvider) ssh.HostKeyCallback {
-	// TODO: Offer better configuration options for host key verification
-	if strings.Contains(provider.Config.ExtraFlags, "AddUnknownHosts") {
-		return addUnknownHostsCallback
+func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallback, error) {
+	flags := parseExtraFlagsSet(provider.Config.ExtraFlags)
+	if flags["addunknownhosts"] || flags["addunknownhost"] {
+		return addUnknownHostsCallback, nil
 	}
-	if strings.Contains(provider.Config.ExtraFlags, "IgnoreKnownHosts") {
-		return ssh.InsecureIgnoreHostKey()
+	if flags["ignoreknownhosts"] || flags["strict_host_key_checking=no"] {
+		return ssh.InsecureIgnoreHostKey(), nil
 	}
 	callbackFn, err := goph.DefaultKnownHosts()
 	if err != nil {
-		provider.Log.Fatalf("Failed to create known hosts callback: %v", err)
+		return nil, fmt.Errorf("load known_hosts: %w", err)
 	}
-	return callbackFn
+	return callbackFn, nil
 }
 
-func resolveHomeDirToAbs(path string) string {
+func resolveHomeDirToAbs(path string) (string, error) {
 	if strings.HasPrefix(path, "~") {
 		homeDir, err := os.UserHomeDir()
 		if err != nil {
-			log.Default.Fatalf("Failed to get user home directory: %v", err)
+			return "", fmt.Errorf("failed to get user home directory: %w", err)
 		}
-		return strings.Replace(path, "~", homeDir, 1)
+		return strings.Replace(path, "~", homeDir, 1), nil
 	}
-	return path
+	return path, nil
 }
 
-func getIdentityFile(file string) string {
-	file = resolveHomeDirToAbs(file)
-	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
-		for _, defaultFile := range *IdentityFileProviders {
-			defaultFile = resolveHomeDirToAbs(defaultFile)
-			if _, err := os.Stat(defaultFile); err == nil {
-				log.Default.Infof("Using default identity file: %s", defaultFile)
-				return defaultFile
-			}
-			log.Default.Debugf("Default identity file does not exist: %s", defaultFile)
-		}
-		log.Default.Fatalf("Identity file does not exist: %s", file)
+func getIdentityFile(file string) (string, error) {
+	file, err := resolveHomeDirToAbs(file)
+	if err != nil {
+		return "", fmt.Errorf("resolve home directory: %w", err)
 	}
-	return file
+	if file != "" {
+		if st, err := os.Stat(file); err == nil && !st.IsDir() {
+			return file, nil
+		}
+	}
+	for _, defaultFile := range *IdentityFileProviders {
+		defaultFile, err = resolveHomeDirToAbs(defaultFile)
+		if err != nil {
+			return "", fmt.Errorf("resolve default identity file: %w", err)
+		}
+		if st, err := os.Stat(defaultFile); err == nil && !st.IsDir() {
+			log.Default.Infof("Using default identity file: %s", defaultFile)
+			return defaultFile, nil
+		}
+		log.Default.Debugf("Default identity file does not exist: %s", defaultFile)
+	}
+	return "", fmt.Errorf("no identity file found")
 }
 
 func getSshHostConfiguration(host string) (*ssh_config.Config, error) {
