@@ -47,5 +47,9 @@ func (cmd *CommandCmd) Run(
 		return fmt.Errorf("command environment variable is missing")
 	}
 
-	return ssh.Command(providerSSH, command)
+	_, err := ssh.SSHExec(providerSSH, command)
+	if err != nil {
+		return fmt.Errorf("failed to execute command: %w", err)
+	}
+	return nil
 }
