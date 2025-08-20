@@ -5,7 +5,9 @@ import (
 	"log"
 	"os"
 	"os/user"
+	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 const DefaultSSHPort = "22"
@@ -17,6 +19,16 @@ var (
 	PORT            = "PORT"
 	EXTRA_FLAGS     = "EXTRA_FLAGS"
 	USE_BUILTIN_SSH = "USE_BUILTIN_SSH"
+	KNOWN_HOSTS_POLICY = "KNOWN_HOSTS_POLICY"
+	KNOWN_HOSTS_PATH   = "KNOWN_HOSTS_PATH"
+)
+
+type KnownHostsPolicy string
+
+const (
+	KnownHostsStrict    KnownHostsPolicy = "strict"     // fail on unknown or mismatched keys
+	KnownHostsAcceptNew KnownHostsPolicy = "accept-new" // add unknown hosts automatically
+	KnownHostsIgnore    KnownHostsPolicy = "ignore"     // do not verify host keys (insecure)
 )
 
 type Options struct {
@@ -27,6 +39,8 @@ type Options struct {
 	Port          string
 	ExtraFlags    string
 	UseBuiltinSSH bool
+	KnownHostsPolicy KnownHostsPolicy
+	KnownHostsPath   string
 }
 
 func FromEnv() (*Options, error) {
@@ -62,6 +76,13 @@ func FromEnv() (*Options, error) {
 	}
 	retOptions.UseBuiltinSSH = builtinSSH == "true"
 
+	if p := os.Getenv(KNOWN_HOSTS_POLICY); p != "" {
+		retOptions.KnownHostsPolicy = ParseKnownHostsPolicy(p)
+	}
+	if p := os.Getenv(KNOWN_HOSTS_PATH); p != "" {
+		retOptions.KnownHostsPath = p
+	}
+
 	return retOptions, nil
 }
 
@@ -89,6 +110,13 @@ func getDefaultOptionsForOS() *Options {
 	}
 	os := runtime.GOOS
 
+	defaultKnownHostsPath := func() string {
+		if home, err := os2UserHomeDir(); err == nil {
+			return filepath.Join(home, ".ssh", "known_hosts")
+		}
+		return ""
+	}()
+
 	if os == "linux" || os == "darwin" {
 		return &Options{
 			DockerPath:    "/usr/bin/docker",
@@ -98,6 +126,8 @@ func getDefaultOptionsForOS() *Options {
 			Port:          DefaultSSHPort,
 			ExtraFlags:    "",
 			UseBuiltinSSH: false,
+			KnownHostsPolicy: KnownHostsStrict,
+			KnownHostsPath:   defaultKnownHostsPath,
 		}
 	}
 
@@ -110,6 +140,8 @@ func getDefaultOptionsForOS() *Options {
 			Port:          DefaultSSHPort,
 			ExtraFlags:    "",
 			UseBuiltinSSH: false,
+			KnownHostsPolicy: KnownHostsStrict,
+			KnownHostsPath:   defaultKnownHostsPath,
 		}
 	}
 
@@ -146,5 +178,27 @@ func OverrideSystemDefaults(opts *Options) {
 	}
 	if !opts.UseBuiltinSSH && defaultOpts.UseBuiltinSSH {
 		opts.UseBuiltinSSH = true
+	}
+	if opts.KnownHostsPolicy == "" {
+		opts.KnownHostsPolicy = defaultOpts.KnownHostsPolicy
+	}
+	if opts.KnownHostsPath == "" {
+		opts.KnownHostsPath = defaultOpts.KnownHostsPath
+	}
+}
+
+// os.UserHomeDir can fail; wrap to allow reuse in inline funcs
+func os2UserHomeDir() (string, error) {
+	return os.UserHomeDir()
+}
+
+func ParseKnownHostsPolicy(v string) KnownHostsPolicy {
+	switch strings.ToLower(strings.TrimSpace(v)) {
+	case "ignore", "insecure":
+		return KnownHostsIgnore
+	case "accept-new", "add-unknown":
+		return KnownHostsAcceptNew
+	default:
+		return KnownHostsStrict
 	}
 }

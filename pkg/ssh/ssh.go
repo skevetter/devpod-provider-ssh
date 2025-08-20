@@ -1,4 +1,4 @@
-package main
+package ssh
 
 import (
 	"errors"
@@ -171,23 +171,6 @@ func getSSHPortOrDefault(portStr string) (uint, error) {
 	return uint(port), nil
 }
 
-// parseExtraFlagsSet normalizes EXTRA_FLAGS into a set for O(1) checks.
-// Flags can be comma or whitespace separated, case-insensitive.
-func parseExtraFlagsSet(flags string) map[string]bool {
-	set := map[string]bool{}
-	if flags == "" {
-		return set
-	}
-	f := func(r rune) bool { return r == ',' || r == ' ' || r == '\t' || r == '\n' }
-	for _, t := range strings.FieldsFunc(flags, f) {
-		t = strings.TrimSpace(strings.ToLower(t))
-		if t != "" {
-			set[t] = true
-		}
-	}
-	return set
-}
-
 func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 	host := provider.Config.Host
 	remoteSSHPort, err := getSSHPortOrDefault(provider.Config.Port)
@@ -300,7 +283,6 @@ func initialize(provider *SSHProvider) error {
 
 	switch remoteOS {
 	case OSLinux:
-		provider.Log.Infof("Running initialization commands for Linux")
 		for _, cmd := range linuxCommands {
 			out, err := client.Run(cmd)
 			if err != nil {
@@ -310,7 +292,6 @@ func initialize(provider *SSHProvider) error {
 			provider.Log.Infof("Output: %s", trimWhitespace(string(out)))
 		}
 	case OSWindows:
-		provider.Log.Infof("Running initialization commands for Windows")
 		for _, cmd := range windowsCommands {
 			out, err := client.Run(cmd)
 			if err != nil {
@@ -351,18 +332,26 @@ func addUnknownHostsCallback(host string, remote net.Addr, key ssh.PublicKey) er
 }
 
 func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallback, error) {
-	flags := parseExtraFlagsSet(provider.Config.ExtraFlags)
-	if flags["addunknownhosts"] || flags["addunknownhost"] {
-		return addUnknownHostsCallback, nil
-	}
-	if flags["ignoreknownhosts"] || flags["strict_host_key_checking=no"] {
+	switch provider.Config.KnownHostsPolicy {
+	case options.KnownHostsIgnore:
 		return ssh.InsecureIgnoreHostKey(), nil
+	case options.KnownHostsAcceptNew:
+		return addUnknownHostsCallback, nil
+	default:
+		// KnownHostsStrict: load from the configured path (if provided) or default
+		if provider.Config.KnownHostsPath != "" {
+			cb, err := knownhosts.New(provider.Config.KnownHostsPath)
+			if err != nil {
+				return nil, fmt.Errorf("load known_hosts from %s: %w", provider.Config.KnownHostsPath, err)
+			}
+			return cb, nil
+		}
+		callbackFn, err := goph.DefaultKnownHosts()
+		if err != nil {
+			return nil, fmt.Errorf("load known_hosts: %w", err)
+		}
+		return callbackFn, nil
 	}
-	callbackFn, err := goph.DefaultKnownHosts()
-	if err != nil {
-		return nil, fmt.Errorf("load known_hosts: %w", err)
-	}
-	return callbackFn, nil
 }
 
 func resolveHomeDirToAbs(path string) (string, error) {
@@ -408,7 +397,7 @@ func getSshHostConfiguration(host string) (*ssh_config.Config, error) {
 	return ssh_config.Decode(strings.NewReader(string(bytes)))
 }
 
-func main() {
+func doStuff() {
 	// Init(DefaultProvider)
 	initialize(DefaultProvider)
 }
