@@ -1,7 +1,9 @@
 package ssh
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
 	"strings"
 
 	"github.com/kevinburke/ssh_config"
@@ -16,11 +18,15 @@ const (
 )
 
 type SSHProvider struct {
-	Config           *options.Options
-	Log              log.Logger
+	// Config holds the SSH connection options
+	Config *options.Options
+	// Log is the logger used for output
+	Log log.Logger
+	// WorkingDirectory is the working directory for SSH operations
 	WorkingDirectory string
 }
 
+// NewProvider returns a new SSHProvider with loaded configuration and logger
 func NewProvider(logs log.Logger) (*SSHProvider, error) {
 	config, err := options.LoadDefault()
 	if err != nil {
@@ -35,6 +41,46 @@ func NewProvider(logs log.Logger) (*SSHProvider, error) {
 	return provider, nil
 }
 
+func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
+	if provider != nil && provider.Config.UseBuiltinSSH {
+		provider.Log.Debugf("Executing command using Go SSH client: %s", command)
+		return SSHExecGo(provider, command)
+	}
+
+	provider.Log.Debugf("Executing command using system SSH binary: %s", command)
+	return SSHExecBinary(provider, command)
+}
+
+// SSHExecBinary executes a command on the remote host using the system ssh binary
+func SSHExecBinary(provider *SSHProvider, command string) ([]byte, error) {
+	if provider == nil || provider.Config == nil {
+		return nil, fmt.Errorf("provider or config is nil")
+	}
+
+	args := []string{"-oStrictHostKeyChecking=no", "-oBatchMode=yes"}
+	if provider.Config.Port != "" && provider.Config.Port != "22" {
+		args = append(args, "-p", provider.Config.Port)
+	}
+	if provider.Config.ExtraFlags != "" {
+		// Optionally parse extra flags (space-separated)
+		extra := strings.Fields(provider.Config.ExtraFlags)
+		args = append(args, extra...)
+	}
+	args = append(args, provider.Config.Host, command)
+
+	var stdout, stderr bytes.Buffer
+	cmd := exec.Command("ssh", args...)
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		return stdout.Bytes(), fmt.Errorf("ssh binary error: %w\nstderr: %s", err, stderr.String())
+	}
+	return stdout.Bytes(), nil
+}
+
+// SSHClient creates and returns a goph.Client for the given SSHProvider configuration
 func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 	if provider != nil && provider.Config != nil {
 		_ = options.NormalizeSource().Apply(provider.Config)
@@ -79,7 +125,8 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 	})
 }
 
-func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
+// SSHExec executes a command on the remote host using the Go-based SSH client
+func SSHExecGo(provider *SSHProvider, command string) ([]byte, error) {
 	log.Default.Infof("Executing command: %s", command)
 	client, err := SSHClient(provider)
 	if err != nil {
@@ -93,6 +140,7 @@ func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
 	return out, nil
 }
 
+// ValidateRemoteHostConnection checks connectivity and basic requirements on the remote host
 func ValidateRemoteHostConnection(provider *SSHProvider) error {
 	if provider != nil && provider.Config != nil {
 		_ = options.NormalizeSource().Apply(provider.Config)
@@ -121,9 +169,10 @@ func ValidateRemoteHostConnection(provider *SSHProvider) error {
 }
 
 func validateLinuxHostConnection(provider *SSHProvider, client *goph.Client) error {
+	provider.Log.Debugf("Validating Linux host connection")
 	cmds := []string{
 		"uname -s",
-		"lsb_release -is || true",
+		"lsb_release -is",
 	}
 	if provider.Config.DockerPath != "" {
 		cmds = append(cmds, fmt.Sprintf("%s ps -qa", provider.Config.DockerPath))
@@ -141,6 +190,7 @@ func validateLinuxHostConnection(provider *SSHProvider, client *goph.Client) err
 }
 
 func validateWindowsHostConnection(provider *SSHProvider, client *goph.Client) error {
+	provider.Log.Debugf("Validating Windows host connection")
 	cmds := []string{
 		`cmd /c "ver"`,
 		`powershell -NoProfile -Command "(Get-CimInstance -ClassName Win32_OperatingSystem).Caption"`,
