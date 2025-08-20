@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/loft-sh/devpod-provider-ssh/pkg/ssh"
-	"github.com/loft-sh/devpod/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/spf13/cobra"
 )
 

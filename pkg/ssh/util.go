@@ -14,7 +14,7 @@ import (
 	"github.com/kevinburke/ssh_config"
 	"github.com/loft-sh/devpod-provider-ssh/pkg/options"
 	"github.com/loft-sh/devpod-provider-ssh/pkg/util"
-	"github.com/loft-sh/devpod/pkg/log"
+	"github.com/loft-sh/log"
 	"github.com/melbahja/goph"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/knownhosts"
