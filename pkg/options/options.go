@@ -2,8 +2,13 @@ package options
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"os/user"
+	"runtime"
 )
+
+const DefaultSSHPort = "22"
 
 var (
 	DOCKER_PATH     = "DOCKER_PATH"
@@ -71,4 +76,75 @@ func fromEnvOrError(name string) (string, error) {
 	}
 
 	return val, nil
+}
+
+func getDefaultOptionsForOS() *Options {
+	user, err := user.Current()
+	if err != nil {
+		log.Fatalf("Failed to get current user: %v", err)
+	}
+	host, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Failed to get hostname: %v", err)
+	}
+	os := runtime.GOOS
+
+	if os == "linux" || os == "darwin" {
+		return &Options{
+			DockerPath:    "/usr/bin/docker",
+			AgentPath:     "/usr/bin/ssh-agent",
+			User:          user.Username,
+			Host:          host,
+			Port:          DefaultSSHPort,
+			ExtraFlags:    "",
+			UseBuiltinSSH: false,
+		}
+	}
+
+	if os == "windows" {
+		return &Options{
+			DockerPath:    "C:\\Program Files\\Docker\\Docker\\resources\\bin\\docker.exe",
+			AgentPath:     "C:\\Windows\\System32\\OpenSSH\\ssh-agent.exe",
+			User:          user.Username,
+			Host:          host,
+			Port:          DefaultSSHPort,
+			ExtraFlags:    "",
+			UseBuiltinSSH: false,
+		}
+	}
+
+	return nil
+}
+
+func OverrideSystemDefaults(opts *Options) {
+	defaultOpts := getDefaultOptionsForOS()
+	if defaultOpts == nil {
+		log.Fatalf("Unsupported operating system: %s", runtime.GOOS)
+	}
+
+	if opts == nil {
+		return
+	}
+
+	if opts.DockerPath == "" {
+		opts.DockerPath = defaultOpts.DockerPath
+	}
+	if opts.AgentPath == "" {
+		opts.AgentPath = defaultOpts.AgentPath
+	}
+	if opts.User == "" {
+		opts.User = defaultOpts.User
+	}
+	if opts.Host == "" {
+		opts.Host = defaultOpts.Host
+	}
+	if opts.Port == "" {
+		opts.Port = defaultOpts.Port
+	}
+	if opts.ExtraFlags == "" {
+		opts.ExtraFlags = defaultOpts.ExtraFlags
+	}
+	if !opts.UseBuiltinSSH && defaultOpts.UseBuiltinSSH {
+		opts.UseBuiltinSSH = true
+	}
 }
