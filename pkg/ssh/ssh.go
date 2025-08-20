@@ -23,7 +23,7 @@ type SSHProvider struct {
 }
 
 func NewProvider(logs log.Logger) (*SSHProvider, error) {
-	config, err := options.FromEnv()
+	config, err := options.LoadDefault()
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +37,10 @@ func NewProvider(logs log.Logger) (*SSHProvider, error) {
 }
 
 func SSHClient(provider *SSHProvider) (*goph.Client, error) {
+	if provider != nil && provider.Config != nil {
+		_ = options.NormalizeSource().Apply(provider.Config)
+	}
+
 	host := provider.Config.Host
 
 	remoteSSHPort, err := getSSHPortOrDefault(provider.Config.Port)
@@ -90,7 +94,9 @@ func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
 }
 
 func ValidateRemoteHostConnection(provider *SSHProvider) error {
-	options.OverrideSystemDefaults(provider.Config)
+	if provider != nil && provider.Config != nil {
+		_ = options.NormalizeSource().Apply(provider.Config)
+	}
 
 	client, err := SSHClient(provider)
 	if err != nil {

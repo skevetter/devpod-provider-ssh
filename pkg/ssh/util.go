@@ -95,6 +95,27 @@ func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallba
 	case options.KnownHostsIgnore:
 		return ssh.InsecureIgnoreHostKey(), nil
 	case options.KnownHostsAcceptNew:
+		if provider.Config.KnownHostsPath != "" {
+			cb, err := knownhosts.New(provider.Config.KnownHostsPath)
+			if err != nil {
+				return nil, fmt.Errorf("load known_hosts from %s: %w", provider.Config.KnownHostsPath, err)
+			}
+			return func(host string, remote net.Addr, key ssh.PublicKey) error {
+				if err := cb(host, remote, key); err != nil {
+					var ke *knownhosts.KeyError
+					if errors.As(err, &ke) && (ke == nil || len(ke.Want) == 0) {
+						// Unknown -> add and accept
+						if err := goph.AddKnownHost(host, remote, key, provider.Config.KnownHostsPath); err != nil {
+							return fmt.Errorf("failed to add host %s to known_hosts: %w", host, err)
+						}
+						log.Default.Infof("Host %s added to known_hosts (%s)", host, provider.Config.KnownHostsPath)
+						return nil
+					}
+					return err
+				}
+				return nil
+			}, nil
+		}
 		return addUnknownHostsCallback, nil
 	default:
 		// KnownHostsStrict: load from the configured path (if provided) or default
@@ -173,14 +194,6 @@ func resolveOperatingSystemType(client *goph.Client) (OperatingSystem, error) {
 }
 
 func buildAuth(identityCandidates []string) (goph.Auth, error) {
-	// Prefer ssh-agent if available
-	if os.Getenv("SSH_AUTH_SOCK") != "" {
-		if a, err := goph.UseAgent(); err == nil {
-			return a, nil
-		} else {
-			log.Default.Debugf("SSH agent not usable: %v", err)
-		}
-	}
 	for _, f := range identityCandidates {
 		path, err := getIdentityFile(f)
 		if err != nil || path == "" {
@@ -193,6 +206,23 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 			return auth, nil
 		} else {
 			log.Default.Debugf("Key not usable %s: %v", path, err)
+		}
+	}
+
+	if os.Getenv("SSH_AUTH_SOCK") != "" {
+		if a, err := goph.UseAgent(); err == nil {
+			return a, nil
+		} else {
+			log.Default.Debugf("SSH agent not usable: %v", err)
+		}
+	}
+	for _, f := range *IdentityFileProviders {
+		path, err := getIdentityFile(f)
+		if err != nil || path == "" {
+			continue
+		}
+		if auth, err := goph.Key(path, ""); err == nil {
+			return auth, nil
 		}
 	}
 	return nil, fmt.Errorf("no usable SSH auth found")
