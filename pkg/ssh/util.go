@@ -239,13 +239,14 @@ func getSSHPortOrDefault(portStr string) (uint, error) {
 
 type remoteConfigResolver struct {
 	cfg          *ssh_config.Config
+	host         string
 	sshKeyLookup string
 }
 
 func (r *remoteConfigResolver) resolve(value string, defaultVal string) (string, error) {
 	val := defaultVal
 	if r.cfg != nil {
-		if v, _ := r.cfg.Get(r.sshKeyLookup, value); v != "" {
+		if v, _ := r.cfg.Get(r.host, r.sshKeyLookup); v != "" {
 			val = v
 		}
 	}
@@ -255,18 +256,28 @@ func (r *remoteConfigResolver) resolve(value string, defaultVal string) (string,
 	return val, nil
 }
 
-func resolveRemoteAddr(cfg *ssh_config.Config, host string) (string, error) {
-	resolver := &remoteConfigResolver{
-		cfg:          cfg,
-		sshKeyLookup: host,
+func resolveRemoteAddr(cfg *ssh_config.Config, host string, defaultHost string) (string, error) {
+	val := defaultHost
+	if cfg != nil {
+		if v, _ := cfg.Get(host, SSHHostConfigKeyHostname.String()); v != "" {
+			val = v
+		}
 	}
-	return resolver.resolve(SSHHostConfigKeyHostname.String(), host)
+	if val == "" {
+		return "", fmt.Errorf("missing SSH config Hostname for %q", host)
+	}
+	return val, nil
 }
 
-func resolveRemoteUser(cfg *ssh_config.Config, user string) (string, error) {
-	resolver := &remoteConfigResolver{
-		cfg:          cfg,
-		sshKeyLookup: user,
+func resolveRemoteUser(cfg *ssh_config.Config, host string, defaultUser string) (string, error) {
+	val := defaultUser
+	if cfg != nil {
+		if v, _ := cfg.Get(host, SSHHostConfigKeyUser.String()); v != "" {
+			val = v
+		}
 	}
-	return resolver.resolve(SSHHostConfigKeyUser.String(), user)
+	if val == "" {
+		return "", fmt.Errorf("missing SSH config User for %q", host)
+	}
+	return val, nil
 }

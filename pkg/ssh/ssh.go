@@ -53,12 +53,12 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 		return nil, err
 	}
 
-	remoteAddr, err := resolveRemoteAddr(cfg, provider.Config.Host)
+	remoteAddr, err := resolveRemoteAddr(cfg, provider.Config.Host, provider.Config.Host)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteUser, err := resolveRemoteUser(cfg, provider.Config.User)
+	remoteUser, err := resolveRemoteUser(cfg, provider.Config.Host, provider.Config.User)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,8 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("known hosts: %w", err)
 	}
+
+	log.Default.Infof("Creating SSH client for %s@%s:%d", remoteUser, remoteAddr, remoteSSHPort)
 
 	return goph.NewConn(&goph.Config{
 		Auth:     auth,
@@ -78,6 +80,7 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 }
 
 func SSHExec(provider *SSHProvider, command string) ([]byte, error) {
+	log.Default.Infof("Executing command: %s", command)
 	client, err := SSHClient(provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)
@@ -97,7 +100,7 @@ func ValidateRemoteHostConnection(provider *SSHProvider) error {
 
 	client, err := SSHClient(provider)
 	if err != nil {
-		return fmt.Errorf("create ssh client: %w", err)
+		return fmt.Errorf("failed to create ssh client: %w", err)
 	}
 	defer client.Close()
 
