@@ -1,11 +1,13 @@
 package ssh
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -27,42 +29,47 @@ const (
 	OSUnknown
 )
 
-var OperatingSystems = map[OperatingSystem]string{
-	OSLinux:   "Linux",
-	OSWindows: "Windows",
-	OSMac:     "macOS",
-	OSUnknown: "Unknown",
-}
-
-func (os OperatingSystem) String() string {
-	if name, ok := OperatingSystems[os]; ok {
-		return name
+func (o OperatingSystem) String() string {
+	switch o {
+	case OSLinux:
+		return "Linux"
+	case OSWindows:
+		return "Windows"
+	case OSMac:
+		return "macOS"
+	default:
+		return "Unknown"
 	}
-	return OperatingSystems[OSUnknown]
 }
 
-type SshHostConfigKey int
+type SSHHostConfigKey int
 
 const (
-	SshHostConfigKeyHostname SshHostConfigKey = iota
-	SshHostConfigKeyUser
-	SshIdentityFile
+	SSHHostConfigKeyHostname SSHHostConfigKey = iota
+	SSHHostConfigKeyUser
+	SSHIdentityFile
 )
 
-var SshHostConfigKeyMap = map[SshHostConfigKey]string{
-	SshHostConfigKeyHostname: "Hostname",
-	SshHostConfigKeyUser:     "User",
-	SshIdentityFile:          "IdentityFile",
+var SSHHostConfigKeyMap = map[SSHHostConfigKey]string{
+	SSHHostConfigKeyHostname: "Hostname",
+	SSHHostConfigKeyUser:     "User",
+	SSHIdentityFile:          "IdentityFile",
 }
 
-var IdentityFileProviders = &[]string{
-	"~/.ssh/id_ed25519",
-	"~/.ssh/id_ecdsa",
-	"~/.ssh/id_rsa",
+func (hk SSHHostConfigKey) String() string {
+	return SSHHostConfigKeyMap[hk]
 }
 
-func (hk SshHostConfigKey) String() string {
-	return SshHostConfigKeyMap[hk]
+func DefaultIdentityFiles() []string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return nil
+	}
+	return []string{
+		filepath.Join(home, ".ssh", "id_ed25519"),
+		filepath.Join(home, ".ssh", "id_ecdsa"),
+		filepath.Join(home, ".ssh", "id_rsa"),
+	}
 }
 
 func addUnknownHostsCallback(host string, remote net.Addr, key ssh.PublicKey) error {
@@ -144,13 +151,9 @@ func getIdentityFile(file string) (string, error) {
 			return file, nil
 		}
 	}
-	for _, defaultFile := range *IdentityFileProviders {
-		defaultFile, err = util.ResolveHomeDirToAbs(defaultFile)
-		if err != nil {
-			return "", fmt.Errorf("resolve default identity file: %w", err)
-		}
+	for _, defaultFile := range DefaultIdentityFiles() {
 		if st, err := os.Stat(defaultFile); err == nil && !st.IsDir() {
-			log.Default.Infof("Using default identity file: %s", defaultFile)
+			log.Default.Debugf("Using default identity file: %s", defaultFile)
 			return defaultFile, nil
 		}
 		log.Default.Debugf("Default identity file does not exist: %s", defaultFile)
@@ -158,12 +161,12 @@ func getIdentityFile(file string) (string, error) {
 	return "", fmt.Errorf("no identity file found")
 }
 
-func getSshHostConfiguration(host string) (*ssh_config.Config, error) {
-	bytes, err := exec.Command("ssh", "-G", host).Output()
+func getSSHHostConfiguration(host string) (*ssh_config.Config, error) {
+	out, err := exec.Command("ssh", "-G", host).Output()
 	if err != nil {
 		return nil, err
 	}
-	return ssh_config.Decode(strings.NewReader(string(bytes)))
+	return ssh_config.Decode(bytes.NewReader(out))
 }
 
 func resolveOperatingSystemType(client *goph.Client) (OperatingSystem, error) {
@@ -216,7 +219,7 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 			log.Default.Debugf("SSH agent not usable: %v", err)
 		}
 	}
-	for _, f := range *IdentityFileProviders {
+	for _, f := range DefaultIdentityFiles() {
 		path, err := getIdentityFile(f)
 		if err != nil || path == "" {
 			continue
@@ -231,57 +234,46 @@ func buildAuth(identityCandidates []string) (goph.Auth, error) {
 func getSSHPortOrDefault(portStr string) (uint, error) {
 	portStr = strings.TrimSpace(portStr)
 	if portStr == "" {
-		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
-		}
-		return uint(p), nil
+		return DefaultSSHPort, nil
 	}
 	port, err := strconv.ParseUint(portStr, 10, 16)
 	if err != nil || port == 0 {
-		p, err := strconv.ParseUint(DefaultSSHPort, 10, 16)
-		if err != nil {
-			return 0, fmt.Errorf("failed to parse default SSH port: %w", err)
-		}
-		log.Default.Warnf("Invalid port %s. Falling back to default SSH port: %d", portStr, p)
-		return uint(p), nil
+		log.Default.Warnf("Invalid port %s. Falling back to default SSH port: %d", portStr, DefaultSSHPort)
+		return DefaultSSHPort, nil
 	}
 	return uint(port), nil
 }
 
 type remoteConfigResolver struct {
-	provider     *SSHProvider
 	cfg          *ssh_config.Config
 	sshKeyLookup string
 }
 
-func (r *remoteConfigResolver) resolve(key SshHostConfigKey, defaultVal string, required bool) (string, error) {
+func (r *remoteConfigResolver) resolve(value string, defaultVal string) (string, error) {
 	val := defaultVal
 	if r.cfg != nil {
-		if v, _ := r.cfg.Get(r.sshKeyLookup, key.String()); v != "" {
+		if v, _ := r.cfg.Get(r.sshKeyLookup, value); v != "" {
 			val = v
 		}
 	}
-	if val == "" && required {
-		return "", fmt.Errorf("missing required SSH config key %q for lookup %q", key.String(), r.sshKeyLookup)
+	if val == "" {
+		return "", fmt.Errorf("missing SSH config key %q for lookup %q", value, r.sshKeyLookup)
 	}
 	return val, nil
 }
 
-func newRemoteConfigResolver(provider *SSHProvider, cfg *ssh_config.Config, lookup string) *remoteConfigResolver {
-	return &remoteConfigResolver{
-		provider:     provider,
+func resolveRemoteAddr(cfg *ssh_config.Config, host string) (string, error) {
+	resolver := &remoteConfigResolver{
 		cfg:          cfg,
-		sshKeyLookup: lookup,
+		sshKeyLookup: host,
 	}
+	return resolver.resolve(SSHHostConfigKeyHostname.String(), host)
 }
 
-func resolveRemoteAddr(provider *SSHProvider, cfg *ssh_config.Config, host string) (string, error) {
-	resolver := newRemoteConfigResolver(provider, cfg, host)
-	return resolver.resolve(SshHostConfigKeyHostname, provider.Config.Host, true)
-}
-
-func resolveRemoteUser(provider *SSHProvider, cfg *ssh_config.Config, host string) (string, error) {
-	resolver := newRemoteConfigResolver(provider, cfg, host)
-	return resolver.resolve(SshHostConfigKeyUser, provider.Config.User, true)
+func resolveRemoteUser(cfg *ssh_config.Config, user string) (string, error) {
+	resolver := &remoteConfigResolver{
+		cfg:          cfg,
+		sshKeyLookup: user,
+	}
+	return resolver.resolve(SSHHostConfigKeyUser.String(), user)
 }

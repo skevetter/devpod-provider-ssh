@@ -12,8 +12,7 @@ import (
 )
 
 const (
-	DefaultSSHPort      = "22"
-	DefaultIdentityFile = "~/.ssh/id_ed25519"
+	DefaultSSHPort uint = 22
 )
 
 type SSHProvider struct {
@@ -41,27 +40,25 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 		_ = options.NormalizeSource().Apply(provider.Config)
 	}
 
-	host := provider.Config.Host
-
 	remoteSSHPort, err := getSSHPortOrDefault(provider.Config.Port)
 	if err != nil {
 		return nil, fmt.Errorf("resolve port: %w", err)
 	}
 
-	cfg := loadSSHConfigIfAvailable(provider, host)
+	cfg := loadSSHConfigIfAvailable(provider, provider.Config.Host)
 
-	identityCandidates := resolveIdentityCandidates(cfg, host)
+	identityCandidates := resolveIdentityCandidates(cfg, provider.Config.Host)
 	auth, err := buildAuth(identityCandidates)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteAddr, err := resolveRemoteAddr(provider, cfg, host)
+	remoteAddr, err := resolveRemoteAddr(cfg, provider.Config.Host)
 	if err != nil {
 		return nil, err
 	}
 
-	remoteUser, err := resolveRemoteUser(provider, cfg, host)
+	remoteUser, err := resolveRemoteUser(cfg, provider.Config.User)
 	if err != nil {
 		return nil, err
 	}
@@ -164,7 +161,7 @@ func loadSSHConfigIfAvailable(provider *SSHProvider, host string) *ssh_config.Co
 	if host == "" {
 		return nil
 	}
-	if c, err := getSshHostConfiguration(host); err == nil {
+	if c, err := getSSHHostConfiguration(host); err == nil {
 		return c
 	} else {
 		provider.Log.Debugf("ssh -G %q failed: %v (falling back to explicit config)", host, err)
@@ -175,11 +172,10 @@ func loadSSHConfigIfAvailable(provider *SSHProvider, host string) *ssh_config.Co
 func resolveIdentityCandidates(cfg *ssh_config.Config, host string) []string {
 	var identityCandidates []string
 	if cfg != nil {
-		if id, _ := cfg.Get(host, SshIdentityFile.String()); id != "" {
+		if id, _ := cfg.Get(host, SSHIdentityFile.String()); id != "" {
 			files := strings.Fields(id)
 			identityCandidates = append(identityCandidates, files...)
 		}
 	}
-	identityCandidates = append(identityCandidates, DefaultIdentityFile)
 	return identityCandidates
 }
