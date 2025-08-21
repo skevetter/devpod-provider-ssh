@@ -22,6 +22,7 @@ const (
 	USE_BUILTIN_SSH    = "USE_BUILTIN_SSH"
 	KNOWN_HOSTS_POLICY = "KNOWN_HOSTS_POLICY"
 	KNOWN_HOSTS_PATH   = "KNOWN_HOSTS_PATH"
+	WSL_DISTRO         = "WSL_DISTRO"
 )
 
 type KnownHostsPolicy string
@@ -42,6 +43,7 @@ type Options struct {
 	UseBuiltinSSH    bool
 	KnownHostsPolicy KnownHostsPolicy
 	KnownHostsPath   string
+	WSLDistro        string
 }
 
 type Source interface {
@@ -97,6 +99,9 @@ func (defaultsSource) Apply(o *Options) error {
 		if o.AgentPath == "" {
 			o.AgentPath = "C:\\Windows\\System32\\OpenSSH\\ssh-agent.exe"
 		}
+		if o.WSLDistro == "" {
+			o.WSLDistro = "Ubuntu"
+		}
 	}
 
 	if o.User == "" {
@@ -113,6 +118,9 @@ func (defaultsSource) Apply(o *Options) error {
 	}
 	if o.KnownHostsPath == "" {
 		o.KnownHostsPath = defaultKnownHostsPath
+	}
+	if o.WSLDistro == "" {
+		o.WSLDistro = ""
 	}
 	return nil
 }
@@ -146,6 +154,9 @@ func (envSource) Apply(o *Options) error {
 	}
 	if v := os.Getenv(KNOWN_HOSTS_PATH); v != "" {
 		o.KnownHostsPath = v
+	}
+	if v := os.Getenv(WSL_DISTRO); v != "" {
+		o.WSLDistro = strings.TrimSpace(v)
 	}
 	return nil
 }

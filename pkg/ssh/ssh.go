@@ -24,6 +24,9 @@ type SSHProvider struct {
 	Log log.Logger
 	// WorkingDirectory is the working directory for SSH operations
 	WorkingDirectory string
+	// cached remote OS detection to avoid repeated probes when using ssh binary
+	detectedOS OperatingSystem
+	osDetected bool
 }
 
 // NewProvider returns a new SSHProvider with loaded configuration and logger
@@ -57,15 +60,17 @@ func SSHExecBinary(provider *SSHProvider, command string) ([]byte, error) {
 		return nil, fmt.Errorf("provider or config is nil")
 	}
 
-	args := []string{"-oStrictHostKeyChecking=no", "-oBatchMode=yes"}
-	if provider.Config.Port != "" && provider.Config.Port != "22" {
-		args = append(args, "-p", provider.Config.Port)
+	// Detect remote OS via ssh binary and wrap with WSL if Windows + WSL distro provided
+	if provider.Config.WSLDistro != "" {
+		remoteOS, err := detectRemoteOSWithBinary(provider)
+		if err != nil {
+			provider.Log.Debugf("remote OS detection (binary) failed, proceeding without WSL wrap: %v", err)
+		} else if remoteOS == OSWindows {
+			command = wrapWSLCommand(provider.Config.WSLDistro, command)
+			provider.Log.Debugf("WSL: %s", command)
+		}
 	}
-	if provider.Config.ExtraFlags != "" {
-		// Optionally parse extra flags (space-separated)
-		extra := strings.Fields(provider.Config.ExtraFlags)
-		args = append(args, extra...)
-	}
+	args := buildSSHBinaryArgs(provider)
 	args = append(args, provider.Config.Host, command)
 
 	var stdout, stderr bytes.Buffer
@@ -127,17 +132,101 @@ func SSHClient(provider *SSHProvider) (*goph.Client, error) {
 
 // SSHExec executes a command on the remote host using the Go-based SSH client
 func SSHExecGo(provider *SSHProvider, command string) ([]byte, error) {
-	log.Default.Infof("Executing command: %s", command)
+	log.Default.Infof("Preparing to execute command: %s", command)
 	client, err := SSHClient(provider)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
 	defer client.Close()
+
+	// Detect remote OS via SSH client and wrap with WSL if needed
+	if provider.Config.WSLDistro != "" {
+		if remoteOS, err := resolveOperatingSystemType(client); err == nil {
+			if remoteOS == OSWindows {
+				command = wrapWSLCommand(provider.Config.WSLDistro, command)
+				provider.Log.Debugf("WSL: %s", command)
+			}
+		} else {
+			provider.Log.Debugf("remote OS detection (go ssh) failed, proceeding without WSL wrap: %v", err)
+		}
+	}
+
+	log.Default.Infof("Executing command: %s", command)
 	out, err := client.Run(command)
 	if err != nil {
 		return nil, fmt.Errorf("command execution failed: %w", err)
 	}
 	return out, nil
+}
+
+func buildSSHBinaryArgs(provider *SSHProvider) []string {
+	args := []string{"-oStrictHostKeyChecking=no", "-oBatchMode=yes"}
+	if provider.Config.Port != "" && provider.Config.Port != "22" {
+		args = append(args, "-p", provider.Config.Port)
+	}
+	if provider.Config.ExtraFlags != "" {
+		extra := strings.Fields(provider.Config.ExtraFlags)
+		args = append(args, extra...)
+	}
+	return args
+}
+
+func wrapWSLCommand(distro, command string) string {
+	// Escape existing double quotes in the command to avoid breaking the -c string
+	escaped := strings.ReplaceAll(command, "\"", "\\\"")
+	return fmt.Sprintf("wsl.exe -d %s -- /bin/sh -lc \"%s\"", distro, escaped)
+}
+
+func detectRemoteOSWithBinary(provider *SSHProvider) (OperatingSystem, error) {
+	if provider.osDetected {
+		return provider.detectedOS, nil
+	}
+
+	runProbe := func(cmdStr string) (string, error) {
+		var stdout, stderr bytes.Buffer
+		args := buildSSHBinaryArgs(provider)
+		args = append(args, provider.Config.Host, cmdStr)
+		cmd := exec.Command("ssh", args...)
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		if err := cmd.Run(); err != nil {
+			return "", fmt.Errorf("probe failed: %w; stderr: %s", err, stderr.String())
+		}
+		return stdout.String(), nil
+	}
+
+	// Linux/macOS probe
+	if out, err := runProbe("uname -s"); err == nil {
+		s := strings.ToLower(strings.TrimSpace(out))
+		switch {
+		case strings.Contains(s, "linux"):
+			provider.detectedOS = OSLinux
+			provider.osDetected = true
+			return provider.detectedOS, nil
+		case strings.Contains(s, "darwin"):
+			provider.detectedOS = OSMac
+			provider.osDetected = true
+			return provider.detectedOS, nil
+		}
+	}
+
+	// Windows probes
+	if out, err := runProbe(`cmd /c "ver"`); err == nil {
+		if strings.Contains(strings.ToLower(out), "windows") {
+			provider.detectedOS = OSWindows
+			provider.osDetected = true
+			return provider.detectedOS, nil
+		}
+	}
+	if out, err := runProbe(`powershell -NoProfile -Command "[System.Environment]::OSVersion.VersionString"`); err == nil {
+		if strings.Contains(strings.ToLower(out), "windows") {
+			provider.detectedOS = OSWindows
+			provider.osDetected = true
+			return provider.detectedOS, nil
+		}
+	}
+
+	return OSUnknown, fmt.Errorf("could not determine remote OS via ssh binary")
 }
 
 // ValidateRemoteHostConnection checks connectivity and basic requirements on the remote host

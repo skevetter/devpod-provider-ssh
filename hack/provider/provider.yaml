@@ -42,6 +42,8 @@ options:
     default: "22"
   EXTRA_FLAGS:
     description: "Extra flags to pass to the SSH command."
+  WSL_DISTRO:
+    description: "If the host is Windows, run commands inside this WSL2 distro (e.g., Ubuntu)."
   USE_BUILTIN_SSH:
     description: "Use the builtin SSH package."
     default: false
