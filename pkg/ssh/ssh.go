@@ -163,6 +163,11 @@ func ValidateRemoteHostConnection(provider *SSHProvider) error {
 		return validateLinuxHostConnection(provider, client)
 	case OSWindows:
 		return validateWindowsHostConnection(provider, client)
+	case OSMac:
+		// macOS is Unix-like; reuse Linux validation where applicable
+		return validateLinuxHostConnection(provider, client)
+	case OSUnknown:
+		return fmt.Errorf("unsupported or unknown remote OS")
 	default:
 		return fmt.Errorf("unsupported or unknown remote OS")
 	}

@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			input, err := os.ReadFile("../release/provider.yaml")
 			framework.ExpectNoError(err)
 			//
-			output := bytes.Replace(input, []byte("https://github.com/loft-sh/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"), -1)
+			output := bytes.ReplaceAll(input, []byte("https://github.com/loft-sh/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"))
 
 			err = os.WriteFile("../release/provider.yaml", output, 0666)
 			framework.ExpectNoError(err)

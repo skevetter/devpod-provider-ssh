@@ -32,14 +32,14 @@ func main() {
 		panic(err)
 	}
 
-	replaced := strings.Replace(string(content), "##VERSION##", os.Args[1], -1)
+	replaced := strings.ReplaceAll(string(content), "##VERSION##", os.Args[1])
 	for k, v := range checksumMap {
 		checksum, err := File(k)
 		if err != nil {
 			panic(fmt.Errorf("generate checksum for %s: %w", k, err))
 		}
 
-		replaced = strings.Replace(replaced, v, checksum, -1)
+		replaced = strings.ReplaceAll(replaced, v, checksum)
 	}
 
 	repo, err := git.PlainOpen(".")

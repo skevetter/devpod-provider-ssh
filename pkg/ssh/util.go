@@ -37,9 +37,11 @@ func (o OperatingSystem) String() string {
 		return "Windows"
 	case OSMac:
 		return "macOS"
-	default:
+	case OSUnknown:
 		return "Unknown"
 	}
+	// Fallback, should be unreachable if all enum values are handled above
+	return "Unknown"
 }
 
 type SSHHostConfigKey int
@@ -124,8 +126,7 @@ func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallba
 			}, nil
 		}
 		return addUnknownHostsCallback, nil
-	default:
-		// KnownHostsStrict: load from the configured path (if provided) or default
+	case options.KnownHostsStrict:
 		if provider.Config.KnownHostsPath != "" {
 			cb, err := knownhosts.New(provider.Config.KnownHostsPath)
 			if err != nil {
@@ -139,20 +140,22 @@ func createHostKeyVerificationCallback(provider *SSHProvider) (ssh.HostKeyCallba
 		}
 		return callbackFn, nil
 	}
+	// Fallback to strict behavior if an unknown value is provided
+	if provider.Config.KnownHostsPath != "" {
+		cb, err := knownhosts.New(provider.Config.KnownHostsPath)
+		if err != nil {
+			return nil, fmt.Errorf("load known_hosts from %s: %w", provider.Config.KnownHostsPath, err)
+		}
+		return cb, nil
+	}
+	callbackFn, err := goph.DefaultKnownHosts()
+	if err != nil {
+		return nil, fmt.Errorf("load known_hosts: %w", err)
+	}
+	return callbackFn, nil
 }
 
-func getIdentityFile(file string) (string, error) {
-	file, err := util.ResolveHomeDirToAbs(file)
-	if err != nil {
-		return "", fmt.Errorf("resolve home directory: %w", err)
-	}
-	if file != "" {
-		if st, err := os.Stat(file); err == nil && !st.IsDir() {
-			return file, nil
-		}
-	}
-	return "", fmt.Errorf("identity file not found: %s", file)
-}
+// Removed unused getIdentityFile function
 
 func getSSHHostConfiguration(host string) (*ssh_config.Config, error) {
 	out, err := exec.Command("ssh", "-G", host).Output()
@@ -237,24 +240,7 @@ func getSSHPortOrDefault(portStr string) (uint, error) {
 	return uint(port), nil
 }
 
-type remoteConfigResolver struct {
-	cfg          *ssh_config.Config
-	host         string
-	sshKeyLookup string
-}
-
-func (r *remoteConfigResolver) resolve(value string, defaultVal string) (string, error) {
-	val := defaultVal
-	if r.cfg != nil {
-		if v, _ := r.cfg.Get(r.host, r.sshKeyLookup); v != "" {
-			val = v
-		}
-	}
-	if val == "" {
-		return "", fmt.Errorf("missing SSH config key %q for lookup %q", value, r.sshKeyLookup)
-	}
-	return val, nil
-}
+// Removed unused remoteConfigResolver type and its resolve method
 
 func resolveRemoteAddr(cfg *ssh_config.Config, host string, defaultHost string) (string, error) {
 	val := defaultHost
