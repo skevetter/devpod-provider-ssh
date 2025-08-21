@@ -1,6 +1,6 @@
+version: "2"
 linters:
-  # We want to gradually introduce new linters to the project
-  disable-all: true
+  default: none
   enable:
     - asasalint
     - asciicheck
@@ -10,11 +10,8 @@ linters:
     - errcheck
     - errname
     - exhaustive
-    - exportloopref
     - ginkgolinter
     - gocheckcompilerdirectives
-    - goimports
-    - gosimple
     - govet
     - grouper
     - importas
@@ -24,29 +21,40 @@ linters:
     - nakedret
     - promlinter
     - staticcheck
-    - stylecheck
-    - typecheck
     - tagalign
     - unconvert
     - unused
     - whitespace
-
-    # - dupl
-    # - cyclop
-    # - funlen
-
-linters-settings:
-  stylecheck:
-    checks: ["*", "-ST1003"]
-  exhaustive:
-    check:
-      - switch
-      - map
-    ignore-enum-types: "ResourceName|FileMode|ProgrammingLanguage"
-    # - cyclop
-    # - funlen
+  settings:
+    exhaustive:
+      check:
+        - switch
+        - map
+      ignore-enum-types: ResourceName|FileMode|ProgrammingLanguage
+    staticcheck:
+      checks:
+        - all
+        - -ST1003
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
 issues:
-  # Maximum issues count per one linter. Set to 0 to disable. Default is 50.
   max-issues-per-linter: 0
-  # Maximum count of issues with the same text. Set to 0 to disable. Default is 3.
   max-same-issues: 0
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

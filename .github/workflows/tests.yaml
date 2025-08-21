@@ -8,7 +8,6 @@ on:
       - "**.go"
       - "!**_test.go"  # exclude test files to ignore unit test changes
       - "e2e/**_test.go"  # include test files in e2e again
-      - ".github/workflows/e2e-tests.yaml"
 
 env:
   GO111MODULE: on
@@ -18,13 +17,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Set up Go 1.24
-        uses: actions/setup-go@v5
-        with:
-          go-version: 1.24
+      - uses: actions/setup-go@v5
 
       - name: Smoke test
         working-directory: ./e2e
