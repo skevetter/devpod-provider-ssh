@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			input, err := os.ReadFile("../release/provider.yaml")
 			framework.ExpectNoError(err)
 			//
-			output := bytes.Replace(input, []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"), -1)
+			output := bytes.ReplaceAll(input, []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"))
 
 			err = os.WriteFile("../release/provider.yaml", output, 0666)
 			framework.ExpectNoError(err)
@@ -62,7 +62,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 					os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 				framework.ExpectNoError(err)
 
-				defer f.Close()
+				defer func() { _ = f.Close() }()
 				_, err = f.Write(publicKey)
 				framework.ExpectNoError(err)
 			}
@@ -71,14 +71,14 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 		ginkgo.It("should download latest devpod", func() {
 			resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
 			framework.ExpectNoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			err = os.MkdirAll("bin/", 0755)
 			framework.ExpectNoError(err)
 
 			out, err := os.Create("bin/devpod")
 			framework.ExpectNoError(err)
-			defer out.Close()
+			defer func() { _ = out.Close() }()
 
 			err = out.Chmod(0755)
 			framework.ExpectNoError(err)

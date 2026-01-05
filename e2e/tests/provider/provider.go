@@ -81,7 +81,7 @@ line3`)
 			controlOutput, err := cmd.Output()
 			framework.ExpectNoError(err)
 
-			os.Setenv("COMMAND", `echo line1
+			_ = os.Setenv("COMMAND", `echo line1
 echo line2
 echo line3`)
 

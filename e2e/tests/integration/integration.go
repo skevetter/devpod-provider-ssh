@@ -18,11 +18,11 @@ var _ = ginkgo.Describe("[integration]: devpod provider ssh test suite", ginkgo.
 		ginkgo.It("should download latest devpod", func() {
 			resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
 			framework.ExpectNoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			out, err := os.Create("bin/devpod")
 			framework.ExpectNoError(err)
-			defer out.Close()
+			defer func() { _ = out.Close() }()
 
 			err = out.Chmod(0755)
 			framework.ExpectNoError(err)

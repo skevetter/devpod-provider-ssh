@@ -29,14 +29,14 @@ func main() {
 		panic(err)
 	}
 
-	replaced := strings.Replace(string(content), "##VERSION##", os.Args[1], -1)
+	replaced := strings.ReplaceAll(string(content), "##VERSION##", os.Args[1])
 	for k, v := range checksumMap {
 		checksum, err := File(k)
 		if err != nil {
 			panic(fmt.Errorf("generate checksum for %s: %w", k, err))
 		}
 
-		replaced = strings.Replace(replaced, v, checksum, -1)
+		replaced = strings.ReplaceAll(replaced, v, checksum)
 	}
 
 	fmt.Print(replaced)
@@ -48,7 +48,7 @@ func File(filePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	hash := sha256.New()
 	_, err = io.Copy(hash, file)
