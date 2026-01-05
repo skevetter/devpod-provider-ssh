@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/loft-sh/devpod/e2e/framework"
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
+	"github.com/skevetter/devpod/e2e/framework"
 )
 
 var _ = ginkgo.Describe("[e2e]: devpod provider ssh test suite", ginkgo.Ordered, func() {
@@ -81,7 +81,7 @@ line3`)
 			controlOutput, err := cmd.Output()
 			framework.ExpectNoError(err)
 
-			os.Setenv("COMMAND", `echo line1
+			_ = os.Setenv("COMMAND", `echo line1
 echo line2
 echo line3`)
 

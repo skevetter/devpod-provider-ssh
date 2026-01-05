@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/loft-sh/devpod-provider-ssh/cmd"
+	"github.com/skevetter/devpod-provider-ssh/cmd"
 )
 
 func main() {

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/kballard/go-shellquote"
-	"github.com/loft-sh/devpod-provider-ssh/pkg/options"
-	"github.com/loft-sh/devpod/pkg/log"
-	"github.com/loft-sh/devpod/pkg/ssh"
+	"github.com/skevetter/devpod-provider-ssh/pkg/options"
+	"github.com/skevetter/devpod/pkg/ssh"
+	"github.com/skevetter/log"
 )
 
 type SSHProvider struct {

@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/loft-sh/devpod-provider-ssh/pkg/ssh"
-	"github.com/loft-sh/devpod/pkg/log"
+	"github.com/skevetter/devpod-provider-ssh/pkg/ssh"
+	"github.com/skevetter/log"
 	"github.com/spf13/cobra"
 )
 

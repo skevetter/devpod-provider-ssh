@@ -11,11 +11,11 @@ import (
 
 	// Register tests
 	//nolint:goimports
-	_ "github.com/loft-sh/devpod-provider-ssh/e2e/tests/smoke"
+	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/smoke"
 	//nolint:goimports
-	_ "github.com/loft-sh/devpod-provider-ssh/e2e/tests/provider"
+	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/provider"
 	//nolint:goimports
-	_ "github.com/loft-sh/devpod-provider-ssh/e2e/tests/integration"
+	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/integration"
 )
 
 // TestRunE2ETests checks configuration parameters (specified through flags) and then runs
