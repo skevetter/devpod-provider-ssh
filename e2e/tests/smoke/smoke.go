@@ -8,8 +8,8 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/loft-sh/devpod/e2e/framework"
 	"github.com/onsi/ginkgo/v2"
+	"github.com/skevetter/devpod/e2e/framework"
 )
 
 var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordered, func() {
@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			input, err := os.ReadFile("../release/provider.yaml")
 			framework.ExpectNoError(err)
 			//
-			output := bytes.Replace(input, []byte("https://github.com/loft-sh/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"), -1)
+			output := bytes.Replace(input, []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"), -1)
 
 			err = os.WriteFile("../release/provider.yaml", output, 0666)
 			framework.ExpectNoError(err)
@@ -69,7 +69,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 		})
 
 		ginkgo.It("should download latest devpod", func() {
-			resp, err := http.Get("https://github.com/loft-sh/devpod/releases/latest/download/devpod-linux-amd64")
+			resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
 			framework.ExpectNoError(err)
 			defer resp.Body.Close()
 
