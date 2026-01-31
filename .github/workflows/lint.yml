@@ -30,4 +30,4 @@ jobs:
         if: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VALIDATE_ALL_CODEBASE: ${{ (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+          VALIDATE_ALL_CODEBASE: true

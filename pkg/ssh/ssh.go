@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strings"
 
 	"github.com/skevetter/devpod-provider-ssh/pkg/options"
 	"github.com/skevetter/log"
@@ -50,12 +51,16 @@ func (provider *SSHProvider) getClient() (SSHClient, error) {
 	// Try Go SSH (default)
 	goClient := NewGoSSHClient(provider.Config, provider.Log)
 	if err := goClient.Connect(); err != nil {
-		provider.Log.Warnf("go ssh connection failed, falling back to shell: %v", err)
-		provider.client = NewShellSSHClient(provider.Config, provider.Log)
-		if err := provider.client.Connect(); err != nil {
-			return nil, err
+		_ = goClient.Close() // Clean up any partial state
+		if shouldFallback(err) {
+			provider.Log.Warnf("go ssh connection failed (fallback-eligible), falling back to shell: %v", err)
+			provider.client = NewShellSSHClient(provider.Config, provider.Log)
+			if err := provider.client.Connect(); err != nil {
+				return nil, err
+			}
+			return provider.client, nil
 		}
-		return provider.client, nil
+		return nil, err
 	}
 
 	provider.Log.Debug("using pure go ssh client")
@@ -104,7 +109,7 @@ func checkSSHOutput(provider *SSHProvider) error {
 	if err != nil {
 		return returnSSHError(provider, "echo Devpod Test")
 	}
-	if out.String() != "Devpod Test\n" {
+	if strings.TrimSpace(out.String()) != "Devpod Test" {
 		return fmt.Errorf("ssh output mismatch")
 	}
 	return nil

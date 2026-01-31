@@ -16,22 +16,34 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 
 	ginkgo.Context("testing /kubeletinfo endpoint", ginkgo.Label("smoke"), ginkgo.Ordered, func() {
 		ginkgo.It("should compile the provider", func() {
-			cmd := exec.Command("bash", "hack/build.sh")
-			cmd.Env = append(cmd.Environ(), "RELEASE_VERSION=0.0.0")
+			// Build using goreleaser
+			cmd := exec.Command("goreleaser", "build", "--snapshot", "--clean", "--single-target")
 			cmd.Dir = "../"
-
 			err := cmd.Run()
 			framework.ExpectNoError(err)
 
-			// Replace binary path in manifest to point to freshly built binaries
-			input, err := os.ReadFile("../release/provider.yaml")
+			// Generate provider.yaml
+			cmd = exec.Command("go", "run", "./hack/provider/main.go", "0.0.0")
+			cmd.Dir = "../"
+			output, err := cmd.Output()
 			framework.ExpectNoError(err)
-			//
-			replaceURL := []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/")
-			replaceWith := []byte(os.Getenv("PWD") + "/../release/")
-			output := bytes.ReplaceAll(input, replaceURL, replaceWith)
 
-			err = os.WriteFile("../release/provider.yaml", output, 0600)
+			// Write provider.yaml
+			err = os.WriteFile("../dist/provider.yaml", output, 0600)
+			framework.ExpectNoError(err)
+
+			// Replace binary path in manifest to point to freshly built binaries
+			input, err := os.ReadFile("../dist/provider.yaml")
+			framework.ExpectNoError(err)
+
+			cwd, err := os.Getwd()
+			framework.ExpectNoError(err)
+
+			replaceURL := []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/")
+			replaceWith := []byte(cwd + "/../dist/")
+			finalOutput := bytes.ReplaceAll(input, replaceURL, replaceWith)
+
+			err = os.WriteFile("../dist/provider.yaml", finalOutput, 0600)
 			framework.ExpectNoError(err)
 		})
 

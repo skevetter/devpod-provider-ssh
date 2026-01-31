@@ -47,7 +47,7 @@ var _ = ginkgo.Describe("[integration]: devpod provider ssh test suite", ginkgo.
 				_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			}
 
-			cmd = exec.Command("bin/devpod", "provider", "add", "../release/provider.yaml", "-o", "HOST=localhost")
+			cmd = exec.Command("bin/devpod", "provider", "add", "../dist/provider.yaml", "-o", "HOST=localhost")
 			err = cmd.Run()
 			framework.ExpectNoError(err)
 		})

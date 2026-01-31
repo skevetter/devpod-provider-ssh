@@ -94,7 +94,10 @@ func run() error {
 		return err
 	}
 
-	provider := buildProvider(cfg)
+	provider, err := buildProvider(cfg)
+	if err != nil {
+		return err
+	}
 
 	output, err := yaml.Marshal(provider)
 	if err != nil {
@@ -127,7 +130,11 @@ func newBuildConfig(version string) (*buildConfig, error) {
 	}, nil
 }
 
-func buildProvider(cfg *buildConfig) Provider {
+func buildProvider(cfg *buildConfig) (Provider, error) {
+	binaries, err := buildBinaries(cfg, allPlatforms())
+	if err != nil {
+		return Provider{}, err
+	}
 	return Provider{
 		Name:         providerName,
 		Version:      cfg.version,
@@ -137,12 +144,12 @@ func buildProvider(cfg *buildConfig) Provider {
 		OptionGroups: buildOptionGroups(),
 		Options:      buildOptions(),
 		Agent:        buildAgent(),
-		Binaries:     buildBinaries(cfg, allPlatforms()),
+		Binaries:     binaries,
 		Exec: map[string]string{
 			"init":    "${SSH_PROVIDER} init",
 			"command": "${SSH_PROVIDER} command",
 		},
-	}
+	}, nil
 }
 
 func buildOptionGroups() []OptionGroup {
@@ -216,52 +223,105 @@ func buildAgent() Agent {
 	}
 }
 
-func buildBinaries(cfg *buildConfig, platforms []string) Binaries {
-	return Binaries{SSHProvider: buildBinaryList(cfg, platforms)}
+func buildBinaries(cfg *buildConfig, platforms []string) (Binaries, error) {
+	list, err := buildBinaryList(cfg, platforms)
+	if err != nil {
+		return Binaries{}, err
+	}
+	return Binaries{SSHProvider: list}, nil
 }
 
-func buildBinaryList(cfg *buildConfig, platforms []string) []Binary {
+func buildBinaryList(cfg *buildConfig, platforms []string) ([]Binary, error) {
 	result := make([]Binary, 0, len(platforms))
 	for _, platform := range platforms {
-		result = append(result, buildBinary(cfg, platform))
+		bin, err := buildBinary(cfg, platform)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, bin)
 	}
-	return result
+	return result, nil
 }
 
-func buildBinary(cfg *buildConfig, platform string) Binary {
-	os, arch, _ := strings.Cut(platform, "/")
-	path := cfg.projectRoot
-	if !cfg.isRelease {
-		if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-			base, _ := url.Parse(path)
-			joined, _ := url.JoinPath(base.String(), buildDir(platform))
-			path = joined
-		} else {
-			absPath, _ := filepath.Abs(path)
-			path = filepath.Join(absPath, buildDir(platform))
-		}
+func buildBinary(cfg *buildConfig, platform string) (Binary, error) {
+	os, arch, ok := strings.Cut(platform, "/")
+	if !ok {
+		return Binary{}, fmt.Errorf("invalid platform format: %s (expected os/arch)", platform)
 	}
 
-	filename := fmt.Sprintf("devpod-provider-%s-%s-%s", providerName, os, arch)
-	if os == "windows" {
-		filename += ".exe"
+	path, err := buildBinaryPath(cfg, platform)
+	if err != nil {
+		return Binary{}, err
 	}
 
-	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
-		path, _ = url.JoinPath(path, filename)
-	} else {
-		path = filepath.Join(path, filename)
-	}
+	filename := buildFilename(os, arch)
+	path = joinPath(path, filename)
 
 	return Binary{
 		OS:       os,
 		Arch:     arch,
 		Path:     path,
 		Checksum: cfg.checksums[filename],
-	}
+	}, nil
 }
 
-func buildDir(platform string) string {
+func buildBinaryPath(cfg *buildConfig, platform string) (string, error) {
+	path := cfg.projectRoot
+	if cfg.isRelease {
+		return path, nil
+	}
+
+	if strings.HasPrefix(path, "http://") || strings.HasPrefix(path, "https://") {
+		return buildURLPath(path, platform)
+	}
+	return buildFilePath(path, platform)
+}
+
+func buildURLPath(base, platform string) (string, error) {
+	parsed, err := url.Parse(base)
+	if err != nil {
+		return "", fmt.Errorf("parse base url: %w", err)
+	}
+	dir, err := buildDir(platform)
+	if err != nil {
+		return "", err
+	}
+	joined, err := url.JoinPath(parsed.String(), dir)
+	if err != nil {
+		return "", fmt.Errorf("join url path: %w", err)
+	}
+	return joined, nil
+}
+
+func buildFilePath(base, platform string) (string, error) {
+	absPath, err := filepath.Abs(base)
+	if err != nil {
+		return "", fmt.Errorf("get absolute path: %w", err)
+	}
+	dir, err := buildDir(platform)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(absPath, dir), nil
+}
+
+func buildFilename(os, arch string) string {
+	filename := fmt.Sprintf("devpod-provider-%s-%s-%s", providerName, os, arch)
+	if os == "windows" {
+		filename += ".exe"
+	}
+	return filename
+}
+
+func joinPath(base, filename string) string {
+	if strings.HasPrefix(base, "http://") || strings.HasPrefix(base, "https://") {
+		joined, _ := url.JoinPath(base, filename)
+		return joined
+	}
+	return filepath.Join(base, filename)
+}
+
+func buildDir(platform string) (string, error) {
 	dirs := map[string]string{
 		"linux/amd64":   "build_linux_amd64_v1",
 		"linux/arm64":   "build_linux_arm64_v8.0",
@@ -269,7 +329,11 @@ func buildDir(platform string) string {
 		"darwin/arm64":  "build_darwin_arm64_v8.0",
 		"windows/amd64": "build_windows_amd64_v1",
 	}
-	return dirs[platform]
+	dir, ok := dirs[platform]
+	if !ok {
+		return "", fmt.Errorf("unsupported platform: %s", platform)
+	}
+	return dir, nil
 }
 
 func allPlatforms() []string {
@@ -287,8 +351,11 @@ func parseChecksums(path string) (map[string]string, error) {
 	checksums := make(map[string]string)
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		if checksum, filename, ok := strings.Cut(scanner.Text(), " "); ok {
-			checksums[strings.TrimSpace(filename)] = checksum
+		parts := strings.SplitN(scanner.Text(), "  ", 2)
+		if len(parts) == 2 {
+			checksums[strings.TrimSpace(parts[1])] = strings.TrimSpace(parts[0])
+		} else if checksum, filename, ok := strings.Cut(scanner.Text(), " "); ok {
+			checksums[strings.TrimSpace(filename)] = strings.TrimSpace(checksum)
 		}
 	}
 

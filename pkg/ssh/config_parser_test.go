@@ -3,6 +3,7 @@ package ssh
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -61,9 +62,13 @@ func (s *ConfigParserTestSuite) TestParseSSHConfig_SimpleHost() {
 	s.Equal("example.com", config.Hostname)
 	s.Equal("testuser", config.User)
 	s.Equal("2222", config.Port)
-	// Config starts with defaults, then adds custom key
-	s.Greater(len(config.IdentityFiles), 0)
-	s.Contains(config.IdentityFiles[len(config.IdentityFiles)-1], ".ssh/custom_key")
+	// Verify tilde was expanded to home directory
+	home, _ := os.UserHomeDir()
+	if home == "" {
+		home = os.Getenv("HOME")
+	}
+	expectedPath := filepath.Join(home, ".ssh", "custom_key")
+	s.Contains(config.IdentityFiles, expectedPath)
 }
 
 func (s *ConfigParserTestSuite) TestParseSSHConfig_MultipleHosts() {
@@ -149,11 +154,15 @@ func (s *ConfigParserTestSuite) TestParseConfig_MultipleIdentityFiles() {
 	config, err := ParseSSHConfig("example", configPath)
 
 	s.Require().NoError(err)
-	// Config starts with 3 defaults, adds 3 custom = 6 total
-	s.Len(config.IdentityFiles, 6)
-	s.Contains(config.IdentityFiles[3], "key1")
-	s.Contains(config.IdentityFiles[4], "key2")
-	s.Contains(config.IdentityFiles[5], "key3")
+	// Verify custom keys are present (order may vary based on defaults)
+	s.GreaterOrEqual(len(config.IdentityFiles), 3)
+	foundKeys := 0
+	for _, f := range config.IdentityFiles {
+		if strings.Contains(f, "key1") || strings.Contains(f, "key2") || strings.Contains(f, "key3") {
+			foundKeys++
+		}
+	}
+	s.Equal(3, foundKeys, "all three custom keys should be present")
 }
 
 func (s *ConfigParserTestSuite) TestDefaultConfig_SimpleHost() {

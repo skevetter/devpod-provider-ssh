@@ -57,7 +57,8 @@ func (c *ShellSSHClient) Execute(command string, output io.Writer) error {
 	}
 
 	// A non-POSIX shell has been detected: falling back to copy and execute scripts
-	if strings.Contains(stderrBuf.String(), "fish: Unsupported") {
+	stderr := stderrBuf.String()
+	if strings.Contains(stderr, "fish: Unsupported") || strings.Contains(stderr, "fish:") {
 		c.log.Warn("non-posix shell detected, using script upload")
 		return c.copyAndExecute(command, output)
 	}
@@ -72,8 +73,15 @@ func (c *ShellSSHClient) Upload(localPath, remotePath string) error {
 		return err
 	}
 
+	var stderrBuf bytes.Buffer
 	// #nosec G204 -- commandToRun is built from validated config
-	return exec.Command("scp", commandToRun...).Run()
+	cmd := exec.Command("scp", commandToRun...)
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err != nil {
+		c.log.Errorf("scp failed: %s", stderrBuf.String())
+		return err
+	}
+	return nil
 }
 
 // Close is a no-op for shell client.
@@ -134,9 +142,8 @@ func (c *ShellSSHClient) copyAndExecute(command string, output io.Writer) error 
 		return err
 	}
 
-	commandToRun = append(commandToRun, []string{
-		"/bin/sh", script, ";", "rm", "-f", script,
-	}...)
+	remoteCmd := fmt.Sprintf("/bin/sh %s; rm -f %s", script, script)
+	commandToRun = append(commandToRun, remoteCmd)
 
 	// #nosec G204 -- commandToRun is built from validated config
 	cmd := exec.Command("ssh", commandToRun...)

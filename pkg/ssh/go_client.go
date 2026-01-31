@@ -221,6 +221,11 @@ func (c *GoSSHClient) uploadFile(client *ssh.Client, localPath, remotePath strin
 
 // executeViaScript uploads command as script and executes it.
 func (c *GoSSHClient) executeViaScript(command string, output io.Writer) error {
+	client, err := c.ensureConnected()
+	if err != nil {
+		return err
+	}
+
 	tmpFile, err := os.CreateTemp("", "devpod-command-*")
 	if err != nil {
 		return fmt.Errorf("create temp file: %w", err)
@@ -238,12 +243,12 @@ func (c *GoSSHClient) executeViaScript(command string, output io.Writer) error {
 	}
 
 	remotePath := "/tmp/" + filepath.Base(tmpFile.Name())
-	if err := c.Upload(tmpFile.Name(), remotePath); err != nil {
+	if err := c.uploadFile(client, tmpFile.Name(), remotePath); err != nil {
 		return fmt.Errorf("upload script: %w", err)
 	}
 
 	cleanupCmd := fmt.Sprintf("/bin/sh %s; rm -f %s", remotePath, remotePath)
-	session, err := c.sshClient.NewSession()
+	session, err := client.NewSession()
 	if err != nil {
 		return fmt.Errorf("create session: %w", err)
 	}

@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"errors"
 	"fmt"
 	"io"
 )
@@ -55,8 +56,11 @@ func shouldFallback(err error) bool {
 		return false
 	}
 
-	switch err.(type) {
-	case *UnsupportedConfigError, *AuthenticationMethodError, *KeyFormatError:
+	var unsupported *UnsupportedConfigError
+	var authMethod *AuthenticationMethodError
+	var keyFormat *KeyFormatError
+
+	if errors.As(err, &unsupported) || errors.As(err, &authMethod) || errors.As(err, &keyFormat) {
 		return true
 	}
 

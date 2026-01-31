@@ -13,7 +13,7 @@ import (
 var _ = ginkgo.Describe("[e2e]: devpod provider ssh test suite", ginkgo.Ordered, func() {
 	ginkgo.Context("testing /kubeletinfo endpoint", ginkgo.Label("e2e"), ginkgo.Ordered, func() {
 		ginkgo.It("should fail the init", func() {
-			cmd := exec.Command("../release/devpod-provider-ssh-linux-amd64", "init")
+			cmd := exec.Command("../dist/devpod-provider-ssh-linux-amd64", "init")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"COMMAND=ls",
@@ -27,7 +27,7 @@ var _ = ginkgo.Describe("[e2e]: devpod provider ssh test suite", ginkgo.Ordered,
 		})
 
 		ginkgo.It("should run the init", func() {
-			cmd := exec.Command("../release/devpod-provider-ssh-linux-amd64", "init")
+			cmd := exec.Command("../dist/devpod-provider-ssh-linux-amd64", "init")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"COMMAND=ls",
@@ -41,7 +41,7 @@ var _ = ginkgo.Describe("[e2e]: devpod provider ssh test suite", ginkgo.Ordered,
 		})
 
 		ginkgo.It("should run a command", func() {
-			cmd := exec.Command("../release/devpod-provider-ssh-linux-amd64", "command")
+			cmd := exec.Command("../dist/devpod-provider-ssh-linux-amd64", "command")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"COMMAND=ls",
@@ -59,7 +59,7 @@ var _ = ginkgo.Describe("[e2e]: devpod provider ssh test suite", ginkgo.Ordered,
 			controlOutput, err := cmd.Output()
 			framework.ExpectNoError(err)
 
-			cmd = exec.Command("../release/devpod-provider-ssh-linux-amd64", "command")
+			cmd = exec.Command("../dist/devpod-provider-ssh-linux-amd64", "command")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"COMMAND=ls /",
@@ -85,7 +85,7 @@ line3`)
 echo line2
 echo line3`)
 
-			cmd = exec.Command("../release/devpod-provider-ssh-linux-amd64", "command")
+			cmd = exec.Command("../dist/devpod-provider-ssh-linux-amd64", "command")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"DOCKER_PATH=docker",
@@ -105,7 +105,7 @@ echo line3`,
 		ginkgo.It("should run a failing command and fail", func() {
 			controlOutput := []byte("bash: line 1: not-a-command: command not found")
 
-			cmd := exec.Command("../release/devpod-provider-ssh-linux-amd64", "command")
+			cmd := exec.Command("../dist/devpod-provider-ssh-linux-amd64", "command")
 			cmd.Env = append(cmd.Environ(), []string{
 				"AGENT_PATH=/tmp/devpod/agent",
 				"COMMAND=not-a-command",

@@ -1,6 +1,7 @@
 package ssh
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/suite"
@@ -45,8 +46,8 @@ func (s *ClientInterfaceTestSuite) TestShouldFallback_KeyFormat() {
 }
 
 func (s *ClientInterfaceTestSuite) TestShouldFallback_OtherError() {
-	err := &KeyFormatError{Format: "test"}
-	s.True(shouldFallback(err))
+	err := fmt.Errorf("some other error")
+	s.False(shouldFallback(err))
 }
 
 func (s *ClientInterfaceTestSuite) TestShouldFallback_Nil() {

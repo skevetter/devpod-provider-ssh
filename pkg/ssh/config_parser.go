@@ -62,7 +62,7 @@ func parseSSHConfigFile(file *os.File, host string) (*SSHConfig, error) {
 
 		// Check for Host directive
 		if key == "host" {
-			inMatchingHost = matchHost(value, host)
+			inMatchingHost = matchesAnyHostPattern(fields[1:], host)
 			continue
 		}
 
@@ -75,6 +75,16 @@ func parseSSHConfigFile(file *os.File, host string) (*SSHConfig, error) {
 	}
 
 	return config, scanner.Err()
+}
+
+func matchesAnyHostPattern(patterns []string, host string) bool {
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern != "" && matchHost(pattern, host) {
+			return true
+		}
+	}
+	return false
 }
 
 func applyConfigDirective(config *SSHConfig, key, value string) {
@@ -109,11 +119,18 @@ func defaultConfig(host string) *SSHConfig {
 		}
 	}
 
-	home, _ := os.UserHomeDir()
-	defaultKeys := []string{
-		filepath.Join(home, ".ssh", "id_rsa"),
-		filepath.Join(home, ".ssh", "id_ecdsa"),
-		filepath.Join(home, ".ssh", "id_ed25519"),
+	home, err := os.UserHomeDir()
+	if err != nil {
+		home = os.Getenv("HOME")
+	}
+
+	var defaultKeys []string
+	if home != "" {
+		defaultKeys = []string{
+			filepath.Join(home, ".ssh", "id_rsa"),
+			filepath.Join(home, ".ssh", "id_ecdsa"),
+			filepath.Join(home, ".ssh", "id_ed25519"),
+		}
 	}
 
 	return &SSHConfig{
@@ -125,18 +142,18 @@ func defaultConfig(host string) *SSHConfig {
 }
 
 func matchHost(pattern, host string) bool {
-	// Simple wildcard matching
-	if pattern == "*" {
-		return true
-	}
-	if pattern == host {
-		return true
-	}
 	// Strip user@ prefix for matching
 	if strings.Contains(host, "@") {
 		host = strings.SplitN(host, "@", 2)[1]
 	}
-	return pattern == host
+
+	// Use filepath.Match for glob pattern support
+	matched, err := filepath.Match(pattern, host)
+	if err == nil && matched {
+		return true
+	}
+
+	return false
 }
 
 func expandPath(path string) string {
