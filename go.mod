@@ -3,12 +3,15 @@ module github.com/skevetter/devpod-provider-ssh
 go 1.25.5
 
 require (
+	github.com/goccy/go-yaml v1.19.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
+	github.com/pkg/sftp v1.13.10
 	github.com/skevetter/devpod v0.8.12
 	github.com/skevetter/log v0.0.0-20251225081445-b5dfd11ce781
 	github.com/spf13/cobra v1.10.2
+	github.com/stretchr/testify v1.11.1
 	golang.org/x/crypto v0.46.0
 )
 
@@ -179,7 +182,6 @@ require (
 	github.com/otiai10/mint v1.6.3 // indirect
 	github.com/pires/go-proxyproto v0.8.1 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/pkg/sftp v1.13.10 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus-community/pro-bing v0.4.0 // indirect

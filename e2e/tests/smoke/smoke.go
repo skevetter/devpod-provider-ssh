@@ -27,20 +27,24 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			input, err := os.ReadFile("../release/provider.yaml")
 			framework.ExpectNoError(err)
 			//
-			output := bytes.ReplaceAll(input, []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/"), []byte(os.Getenv("PWD")+"/../release/"))
+			replaceURL := []byte("https://github.com/skevetter/devpod-provider-ssh/releases/download/0.0.0/")
+			replaceWith := []byte(os.Getenv("PWD") + "/../release/")
+			output := bytes.ReplaceAll(input, replaceURL, replaceWith)
 
-			err = os.WriteFile("../release/provider.yaml", output, 0666)
+			err = os.WriteFile("../release/provider.yaml", output, 0600)
 			framework.ExpectNoError(err)
 		})
 
 		ginkgo.It("should generate ssh keypairs", func() {
 			_, err := os.Stat(os.Getenv("HOME") + "/.ssh/id_rsa")
 			if err != nil {
-				fmt.Println("generating ssh keys")
+				_, _ = fmt.Fprintf(os.Stderr, "generating ssh keys\n")
+				// #nosec G204 -- HOME is from environment
 				cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
 				err = cmd.Run()
 				framework.ExpectNoError(err)
 
+				// #nosec G204 -- HOME is from environment
 				cmd = exec.Command("ssh-keygen", "-y", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
 				output, err := cmd.Output()
 				framework.ExpectNoError(err)
@@ -49,6 +53,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 				framework.ExpectNoError(err)
 			}
 
+			// #nosec G204 -- HOME is from environment
 			cmd := exec.Command("ssh-keygen", "-y", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
 			publicKey, err := cmd.Output()
 			framework.ExpectNoError(err)
@@ -73,7 +78,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			framework.ExpectNoError(err)
 			defer func() { _ = resp.Body.Close() }()
 
-			err = os.MkdirAll("bin/", 0755)
+			err = os.MkdirAll("bin/", 0750)
 			framework.ExpectNoError(err)
 
 			out, err := os.Create("bin/devpod")
@@ -100,7 +105,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 			cmd := exec.Command("bin/devpod", "provider", "delete", "ssh")
 			err := cmd.Run()
 			if err != nil {
-				fmt.Println("warning: " + err.Error())
+				_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			}
 
 			cmd = exec.Command("bin/devpod", "provider", "add", "../release/provider.yaml", "-o", "HOST=localhost")

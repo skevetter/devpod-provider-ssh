@@ -10,10 +10,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// CommandCmd holds the cmd flags
+// CommandCmd holds the cmd flags.
 type CommandCmd struct{}
 
-// NewCommandCmd defines a command
+// NewCommandCmd defines a command.
 func NewCommandCmd() *cobra.Command {
 	cmd := &CommandCmd{}
 	commandCmd := &cobra.Command{
@@ -36,7 +36,7 @@ func NewCommandCmd() *cobra.Command {
 	return commandCmd
 }
 
-// Run runs the command logic
+// Run runs the command logic.
 func (cmd *CommandCmd) Run(
 	ctx context.Context,
 	providerSSH *ssh.SSHProvider,
