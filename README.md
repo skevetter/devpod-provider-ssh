@@ -28,11 +28,11 @@ devpod provider add ssh --option USE_BUILTIN_SSH=true
 devpod provider set-options ssh --option USE_BUILTIN_SSH=true
 ```
 
-This forces the provider to use the builtin SSH client over the one accessible in your shell. 
+This forces the provider to use the builtin SSH client over the one accessible in your shell.
 You will need to add the identities file manually to your SSH config in case it's not the default key:
 ```ssh
 Host my-domain.com
-    User my-user 
+    User my-user
     IdentityFile ~/.my-dir/my-key
 ```
 
