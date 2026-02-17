@@ -2,16 +2,6 @@ name: Tests
 
 on:
   pull_request:
-    branches:
-      - main
-    paths:
-      - "**.go"
-      - "!**_test.go"  # exclude test files to ignore unit test changes
-      - "e2e/**_test.go"  # include test files in e2e again
-      - ".github/workflows/e2e-tests.yaml"
-
-env:
-  GO111MODULE: on
 
 jobs:
   test-full:
@@ -24,6 +14,12 @@ jobs:
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: install goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --snapshot --clean --config .goreleaser.e2e.yml
 
       - name: Smoke test
         working-directory: ./e2e

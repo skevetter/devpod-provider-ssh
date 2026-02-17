@@ -3,6 +3,7 @@ module github.com/skevetter/devpod-provider-ssh
 go 1.25.5
 
 require (
+	github.com/goccy/go-yaml v1.18.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1

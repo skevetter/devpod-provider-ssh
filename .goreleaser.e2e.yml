@@ -1,0 +1,20 @@
+version: 2
+project_name: devpod-provider-ssh
+builds:
+  - id: e2e-build
+    goos: [linux]
+    goarch: [amd64]
+    tags:
+      - netgo
+      - osusergo
+    env:
+      - CGO_ENABLED=0
+    ldflags: -s -w -extldflags '-static'
+    binary: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+archives:
+  - id: default
+    formats: ["binary"]
+    name_template: "{{ .Binary }}"
