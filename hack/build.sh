@@ -22,11 +22,11 @@ GO_BUILD_CMD="go build"
 GO_BUILD_LDFLAGS="-s -w"
 
 if [[ -z "${PROVIDER_BUILD_PLATFORMS}" ]]; then
-    PROVIDER_BUILD_PLATFORMS="linux windows darwin"
+    PROVIDER_BUILD_PLATFORMS=(linux windows darwin)
 fi
 
 if [[ -z "${PROVIDER_BUILD_ARCHS}" ]]; then
-    PROVIDER_BUILD_ARCHS="amd64 arm64"
+    PROVIDER_BUILD_ARCHS=(amd64 arm64)
 fi
 
 # Create the release directory
