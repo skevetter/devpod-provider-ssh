@@ -5,7 +5,7 @@ go 1.25.5
 require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
-	github.com/onsi/gomega v1.39.0
+	github.com/onsi/gomega v1.39.1
 	github.com/skevetter/devpod v0.8.12
 	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
