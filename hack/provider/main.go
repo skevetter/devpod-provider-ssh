@@ -244,7 +244,7 @@ func buildBinaryList(cfg *buildConfig, platforms []string) ([]Binary, error) {
 }
 
 func buildBinary(cfg *buildConfig, platform string) (Binary, error) {
-	os, arch, ok := strings.Cut(platform, "/")
+	goOS, arch, ok := strings.Cut(platform, "/")
 	if !ok {
 		return Binary{}, fmt.Errorf("invalid platform format: %s (expected os/arch)", platform)
 	}
@@ -254,14 +254,22 @@ func buildBinary(cfg *buildConfig, platform string) (Binary, error) {
 		return Binary{}, err
 	}
 
-	filename := buildFilename(os, arch)
-	path = joinPath(path, filename)
+	filename := buildFilename(goOS, arch)
+	path, err = joinPath(path, filename)
+	if err != nil {
+		return Binary{}, err
+	}
+
+	checksum, exists := cfg.checksums[filename]
+	if !exists {
+		return Binary{}, fmt.Errorf("missing checksum for %s", filename)
+	}
 
 	return Binary{
-		OS:       os,
+		OS:       goOS,
 		Arch:     arch,
 		Path:     path,
-		Checksum: cfg.checksums[filename],
+		Checksum: checksum,
 	}, nil
 }
 
@@ -305,20 +313,23 @@ func buildFilePath(base, platform string) (string, error) {
 	return filepath.Join(absPath, dir), nil
 }
 
-func buildFilename(os, arch string) string {
-	filename := fmt.Sprintf("devpod-provider-%s-%s-%s", providerName, os, arch)
-	if os == "windows" {
+func buildFilename(osName, arch string) string {
+	filename := fmt.Sprintf("devpod-provider-%s-%s-%s", providerName, osName, arch)
+	if osName == "windows" {
 		filename += ".exe"
 	}
 	return filename
 }
 
-func joinPath(base, filename string) string {
+func joinPath(base, filename string) (string, error) {
 	if strings.HasPrefix(base, "http://") || strings.HasPrefix(base, "https://") {
-		joined, _ := url.JoinPath(base, filename)
-		return joined
+		joined, err := url.JoinPath(base, filename)
+		if err != nil {
+			return "", fmt.Errorf("join url path: %w", err)
+		}
+		return joined, nil
 	}
-	return filepath.Join(base, filename)
+	return filepath.Join(base, filename), nil
 }
 
 func buildDir(platform string) (string, error) {
