@@ -17,7 +17,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 	ginkgo.Context("testing /kubeletinfo endpoint", ginkgo.Label("smoke"), ginkgo.Ordered, func() {
 		ginkgo.It("should compile the provider", func() {
 			// Build using goreleaser
-			cmd := exec.Command("goreleaser", "build", "--snapshot", "--clean", "--single-target")
+			cmd := exec.Command("goreleaser", "release", "--snapshot", "--clean")
 			cmd.Dir = "../"
 			err := cmd.Run()
 			framework.ExpectNoError(err)
