@@ -44,10 +44,10 @@ var _ = ginkgo.Describe("[integration]: devpod provider ssh test suite", ginkgo.
 			cmd := exec.Command("bin/devpod", "provider", "delete", "ssh")
 			err := cmd.Run()
 			if err != nil {
-				fmt.Println("warning: " + err.Error())
+				_, _ = fmt.Fprintf(os.Stderr, "warning: %v\n", err)
 			}
 
-			cmd = exec.Command("bin/devpod", "provider", "add", "../release/provider.yaml", "-o", "HOST=localhost")
+			cmd = exec.Command("bin/devpod", "provider", "add", "../dist/provider.yaml", "-o", "HOST=localhost")
 			err = cmd.Run()
 			framework.ExpectNoError(err)
 		})

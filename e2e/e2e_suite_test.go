@@ -24,6 +24,7 @@ import (
 // generated in this directory, and cluster logs will also be saved.
 // This function is called on each Ginkgo node in parallel mode.
 func TestRunE2ETests(t *testing.T) {
+	// #nosec G404 -- weak random is acceptable for test randomization
 	rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 	gomega.RegisterFailHandler(ginkgo.Fail)
 	ginkgo.RunSpecs(t, "DevPod SSH Provider e2e suite")

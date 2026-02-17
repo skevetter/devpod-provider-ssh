@@ -28,11 +28,11 @@ devpod provider add ssh --option USE_BUILTIN_SSH=true
 devpod provider set-options ssh --option USE_BUILTIN_SSH=true
 ```
 
-This forces the provider to use the builtin SSH client over the one accessible in your shell. 
+This forces the provider to use the built-in SSH client over the one accessible in your shell.
 You will need to add the identities file manually to your SSH config in case it's not the default key:
 ```ssh
 Host my-domain.com
-    User my-user 
+    User my-user
     IdentityFile ~/.my-dir/my-key
 ```
 
@@ -47,7 +47,7 @@ This provider has the following options:
 | DOCKER_PATH     | false    | The path of the docker binary.                             | docker            |
 | EXTRA_FLAGS     | false    | Extra flags to pass to the SSH command.                    |                   |
 | PORT            | false    | The SSH port to use.                                       | 22                |
-| USE_BUILTIN_SSH | false    | Use the builtin SSH package.                               | false             |
+| USE_BUILTIN_SSH | false    | Use the built-in SSH package.                              | false             |
 
 # Extra
 

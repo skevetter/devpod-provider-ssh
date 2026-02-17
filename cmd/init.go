@@ -8,10 +8,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// InitCmd holds the cmd flags
+// InitCmd holds the cmd flags.
 type InitCmd struct{}
 
-// NewInitCmd defines a init
+// NewInitCmd defines a init.
 func NewInitCmd() *cobra.Command {
 	cmd := &InitCmd{}
 	initCmd := &cobra.Command{
@@ -34,7 +34,7 @@ func NewInitCmd() *cobra.Command {
 	return initCmd
 }
 
-// Run runs the init logic
+// Run runs the init logic.
 func (cmd *InitCmd) Run(
 	ctx context.Context,
 	providerSSH *ssh.SSHProvider,
