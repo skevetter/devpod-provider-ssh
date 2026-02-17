@@ -211,6 +211,7 @@ func buildOptions() Options {
 }
 
 func buildAgent() Agent {
+	//nolint:gosec // G101: These are template variables, not hardcoded credentials
 	return Agent{
 		Path:                    "${AGENT_PATH}",
 		InactivityTimeout:       "${INACTIVITY_TIMEOUT}",

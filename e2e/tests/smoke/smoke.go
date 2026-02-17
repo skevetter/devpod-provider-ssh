@@ -16,14 +16,12 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 
 	ginkgo.Context("testing /kubeletinfo endpoint", ginkgo.Label("smoke"), ginkgo.Ordered, func() {
 		ginkgo.It("should compile the provider", func() {
-			// Build using goreleaser
-			cmd := exec.Command("goreleaser", "release", "--snapshot", "--clean")
-			cmd.Dir = "../"
-			err := cmd.Run()
+			// Verify binary exists (built by workflow)
+			_, err := os.Stat("../dist/devpod-provider-ssh-linux-amd64")
 			framework.ExpectNoError(err)
 
 			// Generate provider.yaml
-			cmd = exec.Command("go", "run", "./hack/provider/main.go", "0.0.0")
+			cmd := exec.Command("go", "run", "./hack/provider/main.go", "0.0.0")
 			cmd.Dir = "../"
 			output, err := cmd.Output()
 			framework.ExpectNoError(err)
