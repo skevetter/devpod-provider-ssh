@@ -7,7 +7,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.27.3
 	github.com/onsi/gomega v1.38.3
 	github.com/skevetter/devpod v0.8.12
-	github.com/skevetter/log v0.0.0-20251225081445-b5dfd11ce781
+	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.46.0
 )
