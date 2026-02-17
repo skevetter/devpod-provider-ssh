@@ -19,7 +19,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          install-only: true
+          args: release --snapshot --clean --config .goreleaser.e2e.yml
 
       - name: Smoke test
         working-directory: ./e2e

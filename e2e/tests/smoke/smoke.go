@@ -86,7 +86,7 @@ var _ = ginkgo.Describe("[smoke]: devpod provider ssh test suite", ginkgo.Ordere
 		})
 
 		ginkgo.It("should download latest devpod", func() {
-			resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
+			resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-provider-ssh-linux-amd64")
 			framework.ExpectNoError(err)
 			defer func() { _ = resp.Body.Close() }()
 
