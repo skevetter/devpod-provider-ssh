@@ -15,6 +15,12 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: install goreleaser
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          install-only: true
+
       - name: Smoke test
         working-directory: ./e2e
         run: |
