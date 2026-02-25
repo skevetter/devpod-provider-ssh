@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -46,31 +45,35 @@ var _ = ginkgo.Describe("[smoke] devpod provider ssh test suite", ginkgo.Label("
 		framework.ExpectEqual(strings.Contains(content, "DOCKER_PATH"), true)
 	})
 	ginkgo.It("should install provider with devpod", func() {
-		_, err := os.Stat(os.Getenv("HOME") + "/.ssh/id_rsa")
+		homeDir := os.Getenv("HOME")
+		sshKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
+
+		_, err := os.Stat(sshKeyPath)
 		if err != nil {
-			fmt.Println("generating ssh keys")
-			cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
+			ginkgo.GinkgoWriter.Println("generating ssh keys")
+			cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath) // #nosec G204
 			err = cmd.Run()
 			framework.ExpectNoError(err)
 
-			cmd = exec.Command("ssh-keygen", "-y", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
+			cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
 			output, err := cmd.Output()
 			framework.ExpectNoError(err)
 
-			err = os.WriteFile(os.Getenv("HOME")+"/.ssh/id_rsa.pub", output, 0600)
+			err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600)
 			framework.ExpectNoError(err)
 		}
 
-		cmd := exec.Command("ssh-keygen", "-y", "-f", os.Getenv("HOME")+"/.ssh/id_rsa")
+		cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
 		publicKey, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-		_, err = os.Stat(os.Getenv("HOME") + "/.ssh/authorized_keys")
+		authorizedKeysPath := filepath.Join(homeDir, ".ssh", "authorized_keys")
+		_, err = os.Stat(authorizedKeysPath)
 		if err != nil {
-			err = os.WriteFile(os.Getenv("HOME")+"/.ssh/authorized_keys", publicKey, 0600)
+			err = os.WriteFile(authorizedKeysPath, publicKey, 0600)
 			framework.ExpectNoError(err)
 		} else {
-			f, err := os.OpenFile(os.Getenv("HOME")+"/.ssh/authorized_keys",
+			f, err := os.OpenFile(authorizedKeysPath,
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 			framework.ExpectNoError(err)
 
@@ -95,7 +98,7 @@ var _ = ginkgo.Describe("[smoke] devpod provider ssh test suite", ginkgo.Label("
 		err = out.Close()
 		framework.ExpectNoError(err)
 
-		err = os.Chmod("bin/devpod", 0755)
+		err = os.Chmod("bin/devpod", 0755) // #nosec G302
 		framework.ExpectNoError(err)
 
 		cmd = exec.Command("bin/devpod", "provider", "add", "../dist/provider.yaml", "-o", "HOST=127.0.0.1")
