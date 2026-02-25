@@ -39,15 +39,18 @@ func setupSSHKeys() {
 	_, err := os.Stat(sshKeyPath) // #nosec G304 -- SSH key path is safely constructed
 	if err != nil {
 		ginkgo.GinkgoWriter.Println("generating ssh keys")
-		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath) // #nosec G204 -- SSH key path is safely constructed
+		// #nosec G204 -- SSH key path is safely constructed
+		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath)
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204 -- SSH key path is safely constructed
+		// #nosec G204 -- SSH key path is safely constructed
+		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath)
 		output, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-		err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600) // #nosec G306 -- SSH public key path is safely constructed
+		// #nosec G306 -- SSH public key path is safely constructed
+		err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600)
 		framework.ExpectNoError(err)
 	}
 
@@ -90,7 +93,6 @@ func setupDevpodCLI() {
 
 	err = os.Chmod("bin/devpod", 0755) // #nosec G302
 	framework.ExpectNoError(err)
-
 }
 
 var _ = ginkgo.Describe("devpod provider ssh test suite", ginkgo.Label("integration"), ginkgo.Ordered, func() {
