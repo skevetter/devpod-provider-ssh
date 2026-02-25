@@ -91,7 +91,7 @@ func setupDevpodCLI() {
 	err = out.Close()
 	framework.ExpectNoError(err)
 
-	err = os.Chmod("bin/devpod", 0755) // #nosec G302
+	err = os.Chmod("bin/devpod", 0755) // #nosec G302 -- devpod CLI needs execute permissions
 	framework.ExpectNoError(err)
 }
 
