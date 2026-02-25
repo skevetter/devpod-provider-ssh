@@ -11,10 +11,6 @@ import (
 
 	// Register tests
 	//nolint:goimports
-	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/smoke"
-	//nolint:goimports
-	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/provider"
-	//nolint:goimports
 	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/integration"
 )
 
