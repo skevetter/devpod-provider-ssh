@@ -73,7 +73,7 @@ var _ = ginkgo.Describe("[smoke] devpod provider ssh test suite", ginkgo.Label("
 			err = os.WriteFile(authorizedKeysPath, publicKey, 0600)
 			framework.ExpectNoError(err)
 		} else {
-			f, err := os.OpenFile(authorizedKeysPath,
+			f, err := os.OpenFile(authorizedKeysPath, // #nosec G304 -- authorized_keys path is safely constructed
 				os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 			framework.ExpectNoError(err)
 
