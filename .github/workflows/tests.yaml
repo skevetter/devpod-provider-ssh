@@ -2,6 +2,7 @@ name: Tests
 
 on:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test-full:
@@ -19,7 +20,7 @@ jobs:
         uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --snapshot --clean --config .goreleaser.e2e.yml
+          args: release --snapshot --clean
 
       - name: Smoke test
         working-directory: ./e2e
