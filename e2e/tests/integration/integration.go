@@ -22,15 +22,14 @@ var _ = ginkgo.Describe("[integration]: devpod provider ssh test suite", ginkgo.
 
 			out, err := os.Create("bin/devpod")
 			framework.ExpectNoError(err)
-			defer func() { _ = out.Close() }()
-
-			err = out.Chmod(0755)
-			framework.ExpectNoError(err)
 
 			_, err = io.Copy(out, resp.Body)
 			framework.ExpectNoError(err)
 
 			err = out.Close()
+			framework.ExpectNoError(err)
+
+			err = os.Chmod("bin/devpod", 0755)
 			framework.ExpectNoError(err)
 
 			// test that devpod works
