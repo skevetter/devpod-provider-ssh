@@ -36,30 +36,27 @@ func setupSSHKeys() {
 	homeDir := os.Getenv("HOME")
 	sshKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
 
-	_, err := os.Stat(sshKeyPath) // #nosec G304 -- SSH key path is safely constructed
+	_, err := os.Stat(sshKeyPath) // #nosec G703 -- SSH key path is safely constructed
 	if err != nil {
 		ginkgo.GinkgoWriter.Println("generating ssh keys")
-		// #nosec G204 -- SSH key path is safely constructed
-		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath)
+		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		// #nosec G204 -- SSH key path is safely constructed
-		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath)
+		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
 		output, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-		// #nosec G306 -- SSH public key path is safely constructed
-		err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600)
+		err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600) // #nosec G703 -- SSH public key path is safely constructed
 		framework.ExpectNoError(err)
 	}
 
-	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204 -- SSH key path is safely constructed
+	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
 	publicKey, err := cmd.Output()
 	framework.ExpectNoError(err)
 
 	authorizedKeysPath := filepath.Join(homeDir, ".ssh", "authorized_keys")
-	_, err = os.Stat(authorizedKeysPath) // #nosec G304 -- authorized_keys path is safely constructed
+	_, err = os.Stat(authorizedKeysPath) // #nosec G703 -- authorized_keys path is safely constructed
 	if err != nil {
 		err = os.WriteFile(authorizedKeysPath, publicKey, 0600)
 		framework.ExpectNoError(err)
