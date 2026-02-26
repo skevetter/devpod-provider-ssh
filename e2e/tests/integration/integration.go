@@ -83,7 +83,7 @@ func setupDevpodCLI() {
 	framework.ExpectNoError(err)
 
 	binPath := filepath.Join(binDir, "devpod")
-	out, err := os.Create(binPath) // #nosec G304 -- path is safely constructed
+	out, err := os.OpenFile(binPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755) // #nosec G304,G302 -- path is safely constructed, needs execute permissions
 	framework.ExpectNoError(err)
 
 	_, err = io.Copy(out, resp.Body)
@@ -92,8 +92,13 @@ func setupDevpodCLI() {
 	err = out.Close()
 	framework.ExpectNoError(err)
 
-	err = os.Chmod(binPath, 0755) // #nosec G302 -- devpod CLI needs execute permissions
-	framework.ExpectNoError(err)
+	ginkgo.GinkgoWriter.Println("File tree:")
+	_ = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
+		if err == nil {
+			ginkgo.GinkgoWriter.Printf("  %s (mode: %s)\n", path, info.Mode())
+		}
+		return nil
+	})
 }
 
 var _ = ginkgo.Describe("devpod provider ssh test suite", ginkgo.Label("integration"), ginkgo.Ordered, func() {
@@ -247,7 +252,7 @@ echo line3`,
 			ginkgo.GinkgoWriter.Printf("SSH command failed with output:\n%s\n", string(output))
 			// contents of ssh config
 			sshConfigPath := filepath.Join(os.Getenv("HOME"), ".ssh", "config")
-			sshConfigData, err := os.ReadFile(sshConfigPath)
+			sshConfigData, err := os.ReadFile(sshConfigPath) // #nosec G304 -- SSH config path is safely constructed
 			if err != nil {
 				ginkgo.GinkgoWriter.Printf("Failed to read SSH config at %s: %v\n", sshConfigPath, err)
 			} else {
