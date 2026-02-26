@@ -79,7 +79,10 @@ func setupDevpodCLI() {
 	err = os.MkdirAll("bin/", 0750)
 	framework.ExpectNoError(err)
 
-	out, err := os.Create("bin/devpod")
+	absPath, err := filepath.Abs("bin/devpod")
+	framework.ExpectNoError(err)
+
+	out, err := os.Create(absPath)
 	framework.ExpectNoError(err)
 
 	_, err = io.Copy(out, resp.Body)
@@ -88,7 +91,7 @@ func setupDevpodCLI() {
 	err = out.Close()
 	framework.ExpectNoError(err)
 
-	err = os.Chmod("bin/devpod", 0755) // #nosec G302 -- devpod CLI needs execute permissions
+	err = os.Chmod(absPath, 0755) // #nosec G302 -- devpod CLI needs execute permissions
 	framework.ExpectNoError(err)
 }
 
