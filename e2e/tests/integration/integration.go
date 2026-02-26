@@ -39,30 +39,32 @@ func setupSSHKeys() {
 	_, err := os.Stat(sshKeyPath) // #nosec G703 -- SSH key path is safely constructed
 	if err != nil {
 		ginkgo.GinkgoWriter.Println("generating ssh keys")
-		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
+		// #nosec G204 -- SSH key path is safely constructed
+		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath)
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
+		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
 		output, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-		err = os.WriteFile(filepath.Join(homeDir, ".ssh", "id_rsa.pub"), output, 0600) // #nosec G703 -- SSH public key path is safely constructed
+		pubKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa.pub")
+		err = os.WriteFile(pubKeyPath, output, 0600) // #nosec G703
 		framework.ExpectNoError(err)
 	}
 
-	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G702 -- SSH key path is safely constructed
+	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
 	publicKey, err := cmd.Output()
 	framework.ExpectNoError(err)
 
 	authorizedKeysPath := filepath.Join(homeDir, ".ssh", "authorized_keys")
 	_, err = os.Stat(authorizedKeysPath) // #nosec G703 -- authorized_keys path is safely constructed
 	if err != nil {
-		err = os.WriteFile(authorizedKeysPath, publicKey, 0600)
+		err = os.WriteFile(authorizedKeysPath, publicKey, 0600) // #nosec G703
 		framework.ExpectNoError(err)
 	} else {
-		f, err := os.OpenFile(authorizedKeysPath, // #nosec G304 -- authorized_keys path is safely constructed
-			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
+		// #nosec G304 -- authorized_keys path is safely constructed
+		f, err := os.OpenFile(authorizedKeysPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		framework.ExpectNoError(err)
 
 		defer func() { _ = f.Close() }()
@@ -82,7 +84,7 @@ func setupDevpodCLI() {
 	absPath, err := filepath.Abs("bin/devpod")
 	framework.ExpectNoError(err)
 
-	out, err := os.Create(absPath)
+	out, err := os.Create(absPath) // #nosec G304 -- path is safely constructed
 	framework.ExpectNoError(err)
 
 	_, err = io.Copy(out, resp.Body)
