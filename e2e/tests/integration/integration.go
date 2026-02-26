@@ -39,12 +39,12 @@ func setupSSHKeys() {
 	_, err := os.Stat(sshKeyPath) // #nosec G703 -- SSH key path is safely constructed
 	if err != nil {
 		ginkgo.GinkgoWriter.Println("generating ssh keys")
-		// #nosec G204 -- SSH key path is safely constructed
+		// #nosec G204,G702 -- SSH key path is safely constructed
 		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath)
 		err = cmd.Run()
 		framework.ExpectNoError(err)
 
-		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
+		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204,G702
 		output, err := cmd.Output()
 		framework.ExpectNoError(err)
 
@@ -53,7 +53,7 @@ func setupSSHKeys() {
 		framework.ExpectNoError(err)
 	}
 
-	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204
+	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204,G702
 	publicKey, err := cmd.Output()
 	framework.ExpectNoError(err)
 
@@ -63,7 +63,7 @@ func setupSSHKeys() {
 		err = os.WriteFile(authorizedKeysPath, publicKey, 0600) // #nosec G703
 		framework.ExpectNoError(err)
 	} else {
-		// #nosec G304 -- authorized_keys path is safely constructed
+		// #nosec G304,G703 -- authorized_keys path is safely constructed
 		f, err := os.OpenFile(authorizedKeysPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		framework.ExpectNoError(err)
 

@@ -24,5 +24,4 @@ jobs:
 
       - name: integration tests
         working-directory: ./e2e
-        run: |
-          go test -v -ginkgo.v -timeout 3600s --ginkgo.label-filter=integration
+        run: go test -v -ginkgo.v -timeout 3600s --ginkgo.label-filter=integration
