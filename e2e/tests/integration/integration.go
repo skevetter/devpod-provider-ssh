@@ -78,13 +78,12 @@ func setupDevpodCLI() {
 	framework.ExpectNoError(err)
 	defer func() { _ = resp.Body.Close() }()
 
-	err = os.MkdirAll("bin/", 0750)
+	binDir := "bin/"
+	err = os.MkdirAll(binDir, 0750)
 	framework.ExpectNoError(err)
 
-	absPath, err := filepath.Abs("bin/devpod")
-	framework.ExpectNoError(err)
-
-	out, err := os.Create(absPath) // #nosec G304 -- path is safely constructed
+	binPath := filepath.Join(binDir, "devpod")
+	out, err := os.Create(binPath) // #nosec G304 -- path is safely constructed
 	framework.ExpectNoError(err)
 
 	_, err = io.Copy(out, resp.Body)
@@ -93,7 +92,7 @@ func setupDevpodCLI() {
 	err = out.Close()
 	framework.ExpectNoError(err)
 
-	err = os.Chmod(absPath, 0755) // #nosec G302 -- devpod CLI needs execute permissions
+	err = os.Chmod(binPath, 0755) // #nosec G302 -- devpod CLI needs execute permissions
 	framework.ExpectNoError(err)
 }
 
@@ -242,8 +241,19 @@ echo line3`,
 	})
 
 	ginkgo.It("should run commands to workspace via ssh", func() {
-		cmd := exec.Command("ssh", "devpod-provider-ssh.devpod", "echo", "test")
-		output, err := cmd.Output()
+		cmd := exec.Command("ssh", "-vvv", "devpod-provider-ssh.devpod", "echo", "test")
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			ginkgo.GinkgoWriter.Printf("SSH command failed with output:\n%s\n", string(output))
+			// contents of ssh config
+			sshConfigPath := filepath.Join(os.Getenv("HOME"), ".ssh", "config")
+			sshConfigData, err := os.ReadFile(sshConfigPath)
+			if err != nil {
+				ginkgo.GinkgoWriter.Printf("Failed to read SSH config at %s: %v\n", sshConfigPath, err)
+			} else {
+				ginkgo.GinkgoWriter.Printf("SSH config contents:\n%s\n", string(sshConfigData))
+			}
+		}
 		framework.ExpectNoError(err)
 
 		gomega.Expect(output).To(gomega.Equal([]byte("test\n")))
