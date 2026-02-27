@@ -79,7 +79,7 @@ func setupDevpodCLI() {
 	defer func() { _ = resp.Body.Close() }()
 
 	binDir := "bin/"
-	err = os.MkdirAll(binDir, 0750)
+	err = os.MkdirAll(binDir, 0755)
 	framework.ExpectNoError(err)
 
 	binPath := filepath.Join(binDir, "devpod")
@@ -253,10 +253,22 @@ echo line3`,
 	})
 
 	ginkgo.It("should run devpod up", func() {
+		// Debug: Check permissions before first command
+		binInfo, _ := os.Stat("bin/devpod")
+		ginkgo.GinkgoWriter.Printf("BEFORE up - bin/devpod mode: %s\n", binInfo.Mode())
+		binDirInfo, _ := os.Stat("bin")
+		ginkgo.GinkgoWriter.Printf("BEFORE up - bin/ mode: %s\n", binDirInfo.Mode())
+
 		cmd := exec.Command("bin/devpod", "up", "--debug", "--ide=none", "../")
 		output, err := cmd.CombinedOutput()
 		ginkgo.GinkgoWriter.Printf("up output:\n%s\n", string(output))
 		framework.ExpectNoError(err)
+
+		// Debug: Check permissions after first command
+		binInfo, _ = os.Stat("bin/devpod")
+		ginkgo.GinkgoWriter.Printf("AFTER up - bin/devpod mode: %s\n", binInfo.Mode())
+		binDirInfo, _ = os.Stat("bin")
+		ginkgo.GinkgoWriter.Printf("AFTER up - bin/ mode: %s\n", binDirInfo.Mode())
 
 		cmd = exec.Command("bin/devpod", "list", "--debug", "--output=json")
 		output, err = cmd.CombinedOutput()
