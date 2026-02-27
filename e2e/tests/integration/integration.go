@@ -83,7 +83,8 @@ func setupDevpodCLI() {
 	framework.ExpectNoError(err)
 
 	binPath := filepath.Join(binDir, "devpod")
-	out, err := os.OpenFile(binPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755) // #nosec G304,G302 -- path is safely constructed, needs execute permissions
+	// #nosec G304,G302 -- path is safely constructed, needs execute permissions
+	out, err := os.OpenFile(binPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0755)
 	framework.ExpectNoError(err)
 
 	_, err = io.Copy(out, resp.Body)
@@ -99,6 +100,17 @@ func setupDevpodCLI() {
 		}
 		return nil
 	})
+
+	// Verify binary is executable
+	absPath, _ := filepath.Abs(binPath)
+	ginkgo.GinkgoWriter.Printf("Absolute path: %s\n", absPath)
+
+	testCmd := exec.Command(binPath, "version")
+	output, err := testCmd.CombinedOutput()
+	ginkgo.GinkgoWriter.Printf("Test execution output: %s\n", string(output))
+	if err != nil {
+		ginkgo.GinkgoWriter.Printf("Test execution error: %v\n", err)
+	}
 }
 
 var _ = ginkgo.Describe("devpod provider ssh test suite", ginkgo.Label("integration"), ginkgo.Ordered, func() {
