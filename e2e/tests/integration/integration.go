@@ -258,9 +258,15 @@ echo line3`,
 		ginkgo.GinkgoWriter.Printf("up output:\n%s\n", string(output))
 		framework.ExpectNoError(err)
 
+		cmd = exec.Command("bin/devpod", "list", "--debug", "--output=json")
+		output, err = cmd.CombinedOutput()
+		ginkgo.GinkgoWriter.Printf("list output:\n%s\n", string(output))
+		framework.ExpectNoError(err)
+
 		// Verify workspace is ready
 		cmd = exec.Command("bin/devpod",
 			"ssh",
+			"--debug",
 			"--context",
 			"default",
 			"--user",
@@ -269,7 +275,6 @@ echo line3`,
 			"--command",
 			"echo ready",
 		)
-		// err = cmd.Run()
 		output, err = cmd.CombinedOutput()
 		ginkgo.GinkgoWriter.Printf("verify output:\n%s\n", string(output))
 		if err != nil {
