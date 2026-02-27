@@ -105,6 +105,7 @@ func setupDevpodCLI() {
 	absPath, _ := filepath.Abs(binPath)
 	ginkgo.GinkgoWriter.Printf("Absolute path: %s\n", absPath)
 
+	// #nosec G204 -- executing a known binary for testing purposes
 	testCmd := exec.Command(binPath, "version")
 	output, err := testCmd.CombinedOutput()
 	ginkgo.GinkgoWriter.Printf("Test execution output: %s\n", string(output))
@@ -254,6 +255,16 @@ echo line3`,
 	ginkgo.It("should run devpod up", func() {
 		cmd := exec.Command("bin/devpod", "up", "--debug", "--ide=none", "../")
 		err := cmd.Run()
+		framework.ExpectNoError(err)
+
+		// Verify workspace is ready
+		cmd = exec.Command("bin/devpod", "ssh", "--context", "default", "--user", "vscode", "devpod-provider-ssh", "--command", "echo ready")
+		// err = cmd.Run()
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			ginkgo.GinkgoWriter.Printf("SSH command failed with output:\n%s\n", string(output))
+			ginkgo.GinkgoWriter.Printf("Failed: %v\n", err)
+		}
 		framework.ExpectNoError(err)
 	})
 
