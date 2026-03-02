@@ -6,7 +6,7 @@ on:
 
 jobs:
   test:
-    name: Run Tntegration Tests
+    name: Run Integration Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6

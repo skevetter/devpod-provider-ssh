@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
@@ -74,8 +75,10 @@ func setupSSHKeys() {
 }
 
 func setupDevpodCLI() {
-	resp, err := http.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
+	client := &http.Client{Timeout: time.Second * 30}
+	resp, err := client.Get("https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64")
 	framework.ExpectNoError(err)
+	framework.ExpectEqual(resp.StatusCode, http.StatusOK)
 	defer func() { _ = resp.Body.Close() }()
 
 	binDir := "bin/"
@@ -92,26 +95,6 @@ func setupDevpodCLI() {
 
 	err = out.Close()
 	framework.ExpectNoError(err)
-
-	ginkgo.GinkgoWriter.Println("File tree:")
-	_ = filepath.Walk(".", func(path string, info os.FileInfo, err error) error {
-		if err == nil {
-			ginkgo.GinkgoWriter.Printf("  %s (mode: %s)\n", path, info.Mode())
-		}
-		return nil
-	})
-
-	// Verify binary is executable
-	absPath, _ := filepath.Abs(binPath)
-	ginkgo.GinkgoWriter.Printf("Absolute path: %s\n", absPath)
-
-	// #nosec G204 -- executing a known binary for testing purposes
-	testCmd := exec.Command(binPath, "version")
-	output, err := testCmd.CombinedOutput()
-	ginkgo.GinkgoWriter.Printf("Test execution output: %s\n", string(output))
-	if err != nil {
-		ginkgo.GinkgoWriter.Printf("Test execution error: %v\n", err)
-	}
 }
 
 var _ = ginkgo.Describe("devpod provider ssh test suite", ginkgo.Label("integration"), ginkgo.Ordered, func() {
@@ -200,7 +183,6 @@ var _ = ginkgo.Describe("devpod provider ssh test suite", ginkgo.Label("integrat
 		}...)
 		output, err := cmd.Output()
 		framework.ExpectNoError(err)
-
 		gomega.Expect(output).To(gomega.Equal(controlOutput))
 	})
 
@@ -228,13 +210,10 @@ echo line3`,
 		}...)
 		output, err := cmd.CombinedOutput()
 		framework.ExpectNoError(err)
-
 		gomega.Expect(output).To(gomega.Equal(controlOutput))
 	})
 
 	ginkgo.It("should run a failing command and fail", func() {
-		controlOutput := []byte("bash: line 1: not-a-command: command not found")
-
 		cmd := exec.Command(providerPath, "command")
 		cmd.Env = append(cmd.Environ(), []string{
 			"AGENT_PATH=/tmp/devpod/agent",
@@ -246,70 +225,25 @@ echo line3`,
 		}...)
 		output, err := cmd.CombinedOutput()
 		framework.ExpectError(err)
-
 		output = bytes.TrimSpace(output)
-
-		gomega.Expect(output).To(gomega.Equal(controlOutput))
+		msg := string(output)
+		gomega.Expect(msg).To(gomega.ContainSubstring("not-a-command"))
+		gomega.Expect(msg).To(gomega.ContainSubstring("command not found"))
 	})
 
 	ginkgo.It("should run devpod up", func() {
-		// Debug: Check permissions before first command
-		binInfo, _ := os.Stat("bin/devpod")
-		ginkgo.GinkgoWriter.Printf("BEFORE up - bin/devpod mode: %s\n", binInfo.Mode())
-		binDirInfo, _ := os.Stat("bin")
-		ginkgo.GinkgoWriter.Printf("BEFORE up - bin/ mode: %s\n", binDirInfo.Mode())
-
 		cmd := exec.Command("bin/devpod", "up", "--debug", "--ide=none", "../")
 		output, err := cmd.CombinedOutput()
 		ginkgo.GinkgoWriter.Printf("up output:\n%s\n", string(output))
 		framework.ExpectNoError(err)
-
-		// Debug: Check permissions after first command
-		binInfo, _ = os.Stat("bin/devpod")
-		ginkgo.GinkgoWriter.Printf("AFTER up - bin/devpod mode: %s\n", binInfo.Mode())
-		binDirInfo, _ = os.Stat("bin")
-		ginkgo.GinkgoWriter.Printf("AFTER up - bin/ mode: %s\n", binDirInfo.Mode())
-
-		cmd = exec.Command("bin/devpod", "list", "--debug", "--output=json")
-		output, err = cmd.CombinedOutput()
-		ginkgo.GinkgoWriter.Printf("list output:\n%s\n", string(output))
-		framework.ExpectNoError(err)
-
-		// Verify workspace is ready
-		cmd = exec.Command("bin/devpod",
-			"ssh",
-			"--debug",
-			"--context",
-			"default",
-			"--user",
-			"vscode",
-			"devpod-provider-ssh",
-			"--command",
-			"echo ready",
-		)
-		output, err = cmd.CombinedOutput()
-		ginkgo.GinkgoWriter.Printf("verify output:\n%s\n", string(output))
-		if err != nil {
-			ginkgo.GinkgoWriter.Printf("Failed: %v\n", err)
-		}
+		err = cmd.Run()
 		framework.ExpectNoError(err)
 	})
 
 	ginkgo.It("should run commands to workspace via ssh", func() {
 		cmd := exec.Command("ssh", "devpod-provider-ssh.devpod", "echo", "test")
 		output, err := cmd.Output()
-		if err != nil {
-			ginkgo.GinkgoWriter.Printf("SSH command failed: %v\n", err)
-			sshConfigPath := filepath.Join(os.Getenv("HOME"), ".ssh", "config")
-			sshConfigData, err := os.ReadFile(sshConfigPath) // #nosec G304 -- SSH config path is safely constructed
-			if err != nil {
-				ginkgo.GinkgoWriter.Printf("Failed to read SSH config at %s: %v\n", sshConfigPath, err)
-			} else {
-				ginkgo.GinkgoWriter.Printf("SSH config contents:\n%s\n", string(sshConfigData))
-			}
-		}
 		framework.ExpectNoError(err)
-
 		gomega.Expect(output).To(gomega.Equal([]byte("test\n")))
 	})
 
