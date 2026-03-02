@@ -34,36 +34,34 @@ func setupProvider() {
 }
 
 func setupSSHKeys() {
-	homeDir := os.Getenv("HOME")
-	sshKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa")
+	homeDir, err := os.UserHomeDir()
+	framework.ExpectNoError(err)
 
-	_, err := os.Stat(sshKeyPath) // #nosec G703 -- SSH key path is safely constructed
-	if err != nil {
+	sshDir := filepath.Join(homeDir, ".ssh")
+	err = os.MkdirAll(sshDir, 0700)
+	framework.ExpectNoError(err)
+
+	sshKeyPath := filepath.Join(sshDir, "id_rsa")
+	_, err = os.Stat(sshKeyPath) // #nosec G703 -- SSH key path is safely constructed
+	if err != nil && os.IsNotExist(err) {
 		ginkgo.GinkgoWriter.Println("generating ssh keys")
 		// #nosec G204,G702 -- SSH key path is safely constructed
 		cmd := exec.Command("ssh-keygen", "-q", "-t", "rsa", "-N", "", "-f", sshKeyPath)
 		err = cmd.Run()
 		framework.ExpectNoError(err)
-
-		cmd = exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204,G702
-		output, err := cmd.Output()
-		framework.ExpectNoError(err)
-
-		pubKeyPath := filepath.Join(homeDir, ".ssh", "id_rsa.pub")
-		err = os.WriteFile(pubKeyPath, output, 0600) // #nosec G703
-		framework.ExpectNoError(err)
 	}
+	framework.ExpectNoError(err)
 
 	cmd := exec.Command("ssh-keygen", "-y", "-f", sshKeyPath) // #nosec G204,G702
 	publicKey, err := cmd.Output()
 	framework.ExpectNoError(err)
 
 	authorizedKeysPath := filepath.Join(homeDir, ".ssh", "authorized_keys")
-	_, err = os.Stat(authorizedKeysPath) // #nosec G703 -- authorized_keys path is safely constructed
-	if err != nil {
-		err = os.WriteFile(authorizedKeysPath, publicKey, 0600) // #nosec G703
+	existing, err := os.ReadFile(authorizedKeysPath) // #nosec G304,G703
+	if err != nil && !os.IsNotExist(err) {
 		framework.ExpectNoError(err)
-	} else {
+	}
+	if !bytes.Contains(existing, bytes.TrimSpace(publicKey)) {
 		// #nosec G304,G703 -- authorized_keys path is safely constructed
 		f, err := os.OpenFile(authorizedKeysPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0600)
 		framework.ExpectNoError(err)
@@ -94,6 +92,10 @@ func setupDevpodCLI() {
 	framework.ExpectNoError(err)
 
 	err = out.Close()
+	framework.ExpectNoError(err)
+
+	verifyCmd := exec.Command(binPath, "version")
+	err = verifyCmd.Run()
 	framework.ExpectNoError(err)
 }
 
@@ -193,7 +195,7 @@ line3`)
 		controlOutput, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-		_ = os.Setenv("COMMAND", `echo line1
+        ginkgo.GinkgoT().Setenv("COMMAND", `echo line1
 echo line2
 echo line3`)
 
