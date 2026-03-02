@@ -94,7 +94,7 @@ func setupDevpodCLI() {
 	err = out.Close()
 	framework.ExpectNoError(err)
 
-	verifyCmd := exec.Command(binPath, "version")
+	verifyCmd := exec.Command(binPath, "version") // #nosec G204,G702 -- path is safely constructed
 	err = verifyCmd.Run()
 	framework.ExpectNoError(err)
 }
@@ -195,7 +195,7 @@ line3`)
 		controlOutput, err := cmd.Output()
 		framework.ExpectNoError(err)
 
-        ginkgo.GinkgoT().Setenv("COMMAND", `echo line1
+		ginkgo.GinkgoT().Setenv("COMMAND", `echo line1
 echo line2
 echo line3`)
 
