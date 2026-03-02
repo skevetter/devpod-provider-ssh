@@ -233,10 +233,7 @@ echo line3`,
 
 	ginkgo.It("should run devpod up", func() {
 		cmd := exec.Command("bin/devpod", "up", "--debug", "--ide=none", "../")
-		output, err := cmd.CombinedOutput()
-		ginkgo.GinkgoWriter.Printf("up output:\n%s\n", string(output))
-		framework.ExpectNoError(err)
-		err = cmd.Run()
+		err := cmd.Run()
 		framework.ExpectNoError(err)
 	})
 
