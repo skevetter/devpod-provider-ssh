@@ -10,7 +10,7 @@ type Framework struct {
 }
 
 func NewDefaultFramework(path string) *Framework {
-	var binName = "devpod-"
+	binName := "devpod-"
 	switch runtime.GOOS {
 	case "darwin":
 		binName += "darwin-"

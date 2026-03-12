@@ -82,7 +82,12 @@ func execSSHCommand(provider *SSHProvider, command string, output io.Writer) err
 		}
 		hostname, user, port, identityfile := parseConfig(string(sshConfig))
 		if hostname == "" || user == "" || port == "" {
-			return fmt.Errorf("resolve ssh config. Hostname='%s', User='%s', Port='%s'", hostname, user, port)
+			return fmt.Errorf(
+				"resolve ssh config. Hostname='%s', User='%s', Port='%s'",
+				hostname,
+				user,
+				port,
+			)
 		}
 
 		// expand identityfile path
@@ -140,7 +145,9 @@ func execSSHCommand(provider *SSHProvider, command string, output io.Writer) err
 
 	// A non-POSIX shell has been detected: falling back to copy and execute scripts
 	if strings.Contains(stderrBuf.String(), "fish: Unsupported") {
-		provider.Log.Warn("A non-POSIX shell has been detected: falling back to copy and execute scripts")
+		provider.Log.Warn(
+			"A non-POSIX shell has been detected: falling back to copy and execute scripts",
+		)
 
 		return copyAndExecSSHCommand(provider, command, output)
 	}
@@ -257,7 +264,10 @@ func Init(provider *SSHProvider) error {
 	if err1 != nil || err2 != nil {
 		err = execSSHCommand(provider, "sudo -nl", out)
 		if err != nil {
-			return fmt.Errorf("%s is not writable, passwordless sudo or root user required", agentDir)
+			return fmt.Errorf(
+				"%s is not writable, passwordless sudo or root user required",
+				agentDir,
+			)
 		}
 	}
 
@@ -266,7 +276,10 @@ func Init(provider *SSHProvider) error {
 	if err != nil {
 		err = execSSHCommand(provider, "sudo -nl", out)
 		if err != nil {
-			return fmt.Errorf("%s not found, passwordless sudo or root user required. If using another user please add to the docker group", provider.Config.DockerPath)
+			return fmt.Errorf(
+				"%s not found, passwordless sudo or root user required. If using another user please add to the docker group",
+				provider.Config.DockerPath,
+			)
 		}
 	}
 

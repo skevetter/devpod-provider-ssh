@@ -117,10 +117,16 @@ func newBuildConfig(version string) (*buildConfig, error) {
 	projectRoot := os.Getenv("PROJECT_ROOT")
 	if projectRoot == "" {
 		owner := getEnvOrDefault("GITHUB_OWNER", githubOwner)
-		projectRoot = fmt.Sprintf("https://github.com/%s/%s/releases/download/%s", owner, githubRepo, version)
+		projectRoot = fmt.Sprintf(
+			"https://github.com/%s/%s/releases/download/%s",
+			owner,
+			githubRepo,
+			version,
+		)
 	}
 
-	isRelease := strings.Contains(projectRoot, "github.com") && strings.Contains(projectRoot, "/releases/")
+	isRelease := strings.Contains(projectRoot, "github.com") &&
+		strings.Contains(projectRoot, "/releases/")
 
 	return &buildConfig{
 		version:     version,
