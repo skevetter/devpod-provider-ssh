@@ -6,9 +6,7 @@ import (
 	"testing"
 
 	"github.com/onsi/ginkgo/v2"
-
 	"github.com/onsi/gomega"
-
 	// Register tests
 	//nolint:goimports
 	_ "github.com/skevetter/devpod-provider-ssh/e2e/tests/integration"
