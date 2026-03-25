@@ -7,7 +7,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/skevetter/devpod v0.17.0
+	github.com/skevetter/devpod v0.17.1
 	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.49.0
@@ -137,7 +137,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.21.3 // indirect
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260317232201-3888fb8f8738 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260324171841-bf0f7103d474 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
@@ -248,7 +248,7 @@ require (
 	golang.zx2c4.com/wireguard/windows v0.5.3 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251213004720-97cd9d5aeac2 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20260122232226-8e98ce8d340d // indirect
-	google.golang.org/grpc v1.79.2 // indirect
+	google.golang.org/grpc v1.79.3 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
