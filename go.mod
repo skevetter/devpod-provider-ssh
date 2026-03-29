@@ -7,7 +7,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/skevetter/devpod v0.17.1
+	github.com/skevetter/devpod v0.17.2
 	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.49.0
@@ -92,7 +92,7 @@ require (
 	github.com/denisbrodbeck/machineid v1.0.1 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/cli v29.3.0+incompatible // indirect
+	github.com/docker/cli v29.3.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker v28.5.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.5 // indirect
@@ -137,7 +137,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.21.3 // indirect
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260324171841-bf0f7103d474 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260327163901-0794660d7203 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
@@ -170,9 +170,9 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-ps v1.0.0 // indirect
 	github.com/mitchellh/hashstructure/v2 v2.0.2 // indirect
-	github.com/moby/buildkit v0.28.0 // indirect
+	github.com/moby/buildkit v0.28.1 // indirect
 	github.com/moby/docker-image-spec v1.3.1 // indirect
-	github.com/moby/patternmatcher v0.6.0 // indirect
+	github.com/moby/patternmatcher v0.6.1 // indirect
 	github.com/moby/sys/capability v0.4.0 // indirect
 	github.com/moby/sys/mountinfo v0.7.2 // indirect
 	github.com/moby/sys/user v0.4.0 // indirect
