@@ -1,13 +1,13 @@
 module github.com/skevetter/devpod-provider-ssh
 
-go 1.26.0
+go 1.26.1
 
 require (
 	github.com/goccy/go-yaml v1.19.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/skevetter/devpod v0.18.0
+	github.com/skevetter/devpod v0.18.1
 	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.49.0
@@ -137,7 +137,7 @@ require (
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.21.3 // indirect
-	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260327163901-0794660d7203 // indirect
+	github.com/google/go-containerregistry/pkg/authn/kubernetes v0.0.0-20260401175751-e90447d31923 // indirect
 	github.com/google/pprof v0.0.0-20260115054156-294ebfa9ad83 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/handlers v1.5.2 // indirect
@@ -271,5 +271,5 @@ require (
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
-	tailscale.com v1.96.0 // indirect
+	tailscale.com v1.96.5 // indirect
 )
