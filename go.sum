@@ -525,8 +525,8 @@ github.com/safchain/ethtool v0.3.0 h1:gimQJpsI6sc1yIqP/y8GYgiXn/NjgvpM0RNoWLVVmP
 github.com/safchain/ethtool v0.3.0/go.mod h1:SA9BwrgyAqNo7M+uaL6IYbxpm5wk3L7Mm6ocLW+CJUs=
 github.com/sirupsen/logrus v1.9.4 h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=
 github.com/sirupsen/logrus v1.9.4/go.mod h1:ftWc9WdOfJ0a92nsE2jF5u5ZwH8Bv2zdeOC42RjbV2g=
-github.com/skevetter/devpod v0.18.2 h1:sZZk8jDWWg3W8kuvd/Yg/hHVza3um4KHUJ2BqS6RuBg=
-github.com/skevetter/devpod v0.18.2/go.mod h1:jx1o+DxdCs0/8llauBwknl4K9fn8vQASgVsC6kA+Jls=
+github.com/skevetter/devpod v0.18.3 h1:fONlTpO3zdktYwizR/1EnR1wtE/pUCfHwnIDLVeXAWI=
+github.com/skevetter/devpod v0.18.3/go.mod h1:qdFSC7kcdTV8IviIph2mqZkvQ702V97y7XC7MXuQrTo=
 github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c h1:2IjLo9V6TLV2rORRKKu+NVMSrOAEeuS4KJPk3v9e1rs=
 github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c/go.mod h1:Aqjwx8xRSxBWtTYXK3EzxManSgYZl7FaSh8J5LvTAK0=
 github.com/skevetter/ssh v0.1.0 h1:+Kcb77Z8WHc+uiHVF9JJCMZjdFiY+o/Tn2Pz7pGyIDs=
