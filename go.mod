@@ -7,7 +7,7 @@ require (
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
 	github.com/onsi/ginkgo/v2 v2.28.1
 	github.com/onsi/gomega v1.39.1
-	github.com/skevetter/devpod v0.19.3
+	github.com/skevetter/devpod v0.19.4
 	github.com/skevetter/log v0.0.0-20260106023547-bfd26ab1367c
 	github.com/spf13/cobra v1.10.2
 	golang.org/x/crypto v0.50.0
@@ -252,7 +252,7 @@ require (
 	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
 	k8s.io/metrics v0.35.3 // indirect
 	k8s.io/utils v0.0.0-20260319190234-28399d86e0b5 // indirect
-	mvdan.cc/sh/v3 v3.12.0 // indirect
+	mvdan.cc/sh/v3 v3.13.1 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.31.2 // indirect
 	sigs.k8s.io/controller-runtime v0.23.3 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
