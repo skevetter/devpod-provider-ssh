@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/skevetter/devpod-provider-ssh/compare/v0.2.1...v0.2.2) (2026-04-12)
+
+
+### Features
+
+* add Taskfile and workflow-approval ([#63](https://github.com/skevetter/devpod-provider-ssh/issues/63)) ([df31157](https://github.com/skevetter/devpod-provider-ssh/commit/df31157f7c42f9cae103d99bb34ccde99e185796))
+
 ## [0.2.1](https://github.com/skevetter/devpod-provider-ssh/compare/v0.2.0...v0.2.1) (2026-04-12)
 
 
