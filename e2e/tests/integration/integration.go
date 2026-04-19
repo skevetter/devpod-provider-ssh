@@ -12,10 +12,10 @@ import (
 
 	"github.com/onsi/ginkgo/v2"
 	"github.com/onsi/gomega"
-	"github.com/skevetter/devpod/e2e/framework"
+	"github.com/devsy-org/devsy/e2e/framework"
 )
 
-const providerPath = "../dist/build_linux_amd64_v1/devpod-provider-ssh-linux-amd64"
+const providerPath = "../dist/build_linux_amd64_v1/devsy-provider-ssh-linux-amd64"
 
 func setupProvider() {
 	cmd := exec.Command("go", "run", "hack/provider/main.go", "0.0.0")
@@ -72,10 +72,10 @@ func setupSSHKeys() {
 	}
 }
 
-func setupDevpodCLI() {
+func setupDevsyCLI() {
 	client := &http.Client{Timeout: time.Second * 30}
 	resp, err := client.Get(
-		"https://github.com/skevetter/devpod/releases/latest/download/devpod-linux-amd64",
+		"https://github.com/devsy-org/devsy/releases/latest/download/devsy-linux-amd64",
 	)
 	framework.ExpectNoError(err)
 	framework.ExpectEqual(resp.StatusCode, http.StatusOK)
@@ -85,7 +85,7 @@ func setupDevpodCLI() {
 	err = os.MkdirAll(binDir, 0o755) // #nosec G301 -- bin directory is safely constructed
 	framework.ExpectNoError(err)
 
-	binPath := filepath.Join(binDir, "devpod")
+	binPath := filepath.Join(binDir, "devsy")
 	// #nosec G304,G302 -- path is safely constructed, needs execute permissions
 	out, err := os.OpenFile(binPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o755)
 	framework.ExpectNoError(err)
@@ -102,14 +102,14 @@ func setupDevpodCLI() {
 }
 
 var _ = ginkgo.Describe(
-	"devpod provider ssh test suite",
+	"devsy provider ssh test suite",
 	ginkgo.Label("integration"),
 	ginkgo.Ordered,
 	func() {
 		ginkgo.BeforeAll(func() {
 			setupProvider()
 			setupSSHKeys()
-			setupDevpodCLI()
+			setupDevsyCLI()
 		})
 
 		ginkgo.It("should generate valid provider.yaml", func() {
@@ -127,9 +127,9 @@ var _ = ginkgo.Describe(
 			framework.ExpectEqual(strings.Contains(content, "AGENT_PATH"), true)
 			framework.ExpectEqual(strings.Contains(content, "DOCKER_PATH"), true)
 		})
-		ginkgo.It("should install provider with devpod", func() {
+		ginkgo.It("should install provider with devsy", func() {
 			cmd := exec.Command(
-				"bin/devpod",
+				"bin/devsy",
 				"provider",
 				"add",
 				"../dist/provider.yaml",
@@ -143,7 +143,7 @@ var _ = ginkgo.Describe(
 		ginkgo.It("should fail the init", func() {
 			cmd := exec.Command(providerPath, "init")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"COMMAND=ls",
 				"DOCKER_PATH=docker",
 				"HOST=localhost",
@@ -157,7 +157,7 @@ var _ = ginkgo.Describe(
 		ginkgo.It("should run the init", func() {
 			cmd := exec.Command(providerPath, "init")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"COMMAND=ls",
 				"DOCKER_PATH=docker",
 				"HOST=localhost",
@@ -171,7 +171,7 @@ var _ = ginkgo.Describe(
 		ginkgo.It("should run a command", func() {
 			cmd := exec.Command(providerPath, "command")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"COMMAND=ls",
 				"DOCKER_PATH=docker",
 				"HOST=localhost",
@@ -189,7 +189,7 @@ var _ = ginkgo.Describe(
 
 			cmd = exec.Command(providerPath, "command")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"COMMAND=ls /",
 				"DOCKER_PATH=docker",
 				"HOST=localhost",
@@ -214,7 +214,7 @@ echo line3`)
 
 			cmd = exec.Command(providerPath, "command")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"DOCKER_PATH=docker",
 				"COMMAND=" + `echo line1
 echo line2
@@ -231,7 +231,7 @@ echo line3`,
 		ginkgo.It("should run a failing command and fail", func() {
 			cmd := exec.Command(providerPath, "command")
 			cmd.Env = append(cmd.Environ(), []string{
-				"AGENT_PATH=/tmp/devpod/agent",
+				"AGENT_PATH=/tmp/devsy/agent",
 				"COMMAND=not-a-command",
 				"DOCKER_PATH=docker",
 				"HOST=localhost",
@@ -246,21 +246,21 @@ echo line3`,
 			gomega.Expect(msg).To(gomega.ContainSubstring("command not found"))
 		})
 
-		ginkgo.It("should run devpod up", func() {
-			cmd := exec.Command("bin/devpod", "up", "--debug", "--ide=none", "../")
+		ginkgo.It("should run devsy up", func() {
+			cmd := exec.Command("bin/devsy", "up", "--debug", "--ide=none", "../")
 			err := cmd.Run()
 			framework.ExpectNoError(err)
 		})
 
 		ginkgo.It("should run commands to workspace via ssh", func() {
-			cmd := exec.Command("ssh", "devpod-provider-ssh.devpod", "echo", "test")
+			cmd := exec.Command("ssh", "devsy-provider-ssh.devsy", "echo", "test")
 			output, err := cmd.Output()
 			framework.ExpectNoError(err)
 			gomega.Expect(output).To(gomega.Equal([]byte("test\n")))
 		})
 
-		ginkgo.It("should cleanup devpod workspace", func() {
-			cmd := exec.Command("bin/devpod", "delete", "--debug", "--force", "devpod-provider-ssh")
+		ginkgo.It("should cleanup devsy workspace", func() {
+			cmd := exec.Command("bin/devsy", "delete", "--debug", "--force", "devsy-provider-ssh")
 			err := cmd.Run()
 			framework.ExpectNoError(err)
 		})

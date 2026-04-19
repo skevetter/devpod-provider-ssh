@@ -1,6 +1,6 @@
 release
 env
-devpod-provider-ssh
+devsy-provider-ssh
 e2e/bin
 .idea
 dist

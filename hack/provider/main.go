@@ -13,8 +13,8 @@ import (
 
 const (
 	providerName = "ssh"
-	githubOwner  = "skevetter"
-	githubRepo   = "devpod-provider-ssh"
+	githubOwner  = "devsy-org"
+	githubRepo   = "devsy-provider-ssh"
 )
 
 type Provider struct {
@@ -144,9 +144,9 @@ func buildProvider(cfg *buildConfig) (Provider, error) {
 	return Provider{
 		Name:         providerName,
 		Version:      cfg.version,
-		Description:  "DevPod on SSH",
-		Icon:         "https://devpod.sh/assets/ssh.svg",
-		IconDark:     "https://devpod.sh/assets/ssh_dark.svg",
+		Description:  "Devsy on SSH",
+		Icon:         "https://devsy.sh/assets/ssh.svg",
+		IconDark:     "https://devsy.sh/assets/ssh_dark.svg",
 		OptionGroups: buildOptionGroups(),
 		Options:      buildOptions(),
 		Agent:        buildAgent(),
@@ -199,18 +199,18 @@ func buildOptions() Options {
 			Default:     "docker",
 		},
 		"AGENT_PATH": {
-			Description: "The path where to inject the DevPod agent to.",
-			Command:     `printf "%s" "/tmp/${USER}/devpod/agent"`,
+			Description: "The path where to inject the Devsy agent to.",
+			Command:     `printf "%s" "/tmp/${USER}/devsy/agent"`,
 		},
 		"INACTIVITY_TIMEOUT": {
 			Description: "If defined, will automatically stop the container after the inactivity period. Example: 10m",
 		},
 		"INJECT_GIT_CREDENTIALS": {
-			Description: "If DevPod should inject git credentials into the remote host.",
+			Description: "If Devsy should inject git credentials into the remote host.",
 			Default:     "true",
 		},
 		"INJECT_DOCKER_CREDENTIALS": {
-			Description: "If DevPod should inject docker credentials into the remote host.",
+			Description: "If Devsy should inject docker credentials into the remote host.",
 			Default:     "true",
 		},
 	}
@@ -321,7 +321,7 @@ func buildFilePath(base, platform string) (string, error) {
 }
 
 func buildFilename(osName, arch string) string {
-	filename := fmt.Sprintf("devpod-provider-%s-%s-%s", providerName, osName, arch)
+	filename := fmt.Sprintf("devsy-provider-%s-%s-%s", providerName, osName, arch)
 	if osName == "windows" {
 		filename += ".exe"
 	}

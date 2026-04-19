@@ -1,15 +1,15 @@
-# DevPod SSH Provider
+# Devsy SSH Provider
 
-[![Join us on Slack!](docs/static/media/slack.svg)](https://slack.loft.sh/) [![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/skevetter/devpod-provider-ssh)
+[![Open in Devsy!](https://devsy.sh/assets/open-in-devsy.svg)](https://devsy.sh/open#https://github.com/devsy-org/devsy-provider-ssh)
 
-This repository hosts the default SSH provider configuration used in DevPod.
+This repository hosts the default SSH provider configuration used in Devsy.
 
 ## Usage
 
 To add this SSH provider from the CLI, use the `provider add` command along with your remote host to deploy to. For example:
 
 ```shell
-devpod provider add ssh -o HOST=user@my-domain.com
+devsy provider add ssh -o HOST=user@my-domain.com
 ```
 
 Please note, the SSH host must be accessible via ssh user@my-domain.com with passwordless login and the user being either root or in the docker group.
@@ -23,9 +23,9 @@ We only support Linux machine as remote hosts.
 There are known issues with the default windows SSH installation in some setups. If you're unable to connect to your host by default,
 try to enable the `USE_BUILTIN_SSH` option
 ```shell
-devpod provider add ssh --option USE_BUILTIN_SSH=true
+devsy provider add ssh --option USE_BUILTIN_SSH=true
 # or if already installed
-devpod provider set-options ssh --option USE_BUILTIN_SSH=true
+devsy provider set-options ssh --option USE_BUILTIN_SSH=true
 ```
 
 This forces the provider to use the builtin SSH client over the one accessible in your shell.
@@ -43,7 +43,7 @@ This provider has the following options:
 | NAME            | REQUIRED | DESCRIPTION                                                | DEFAULT           |
 |-----------------|----------|------------------------------------------------------------|-------------------|
 | HOST            | true     | The SSH Host to connect to. Example: my-user@my-domain.com |                   |
-| AGENT_PATH      | false    | The path where to inject the DevPod agent to.              | /tmp/devpod/agent |
+| AGENT_PATH      | false    | The path where to inject the Devsy agent to.              | /tmp/devsy/agent  |
 | DOCKER_PATH     | false    | The path of the docker binary.                             | docker            |
 | EXTRA_FLAGS     | false    | Extra flags to pass to the SSH command.                    |                   |
 | PORT            | false    | The SSH port to use.                                       | 22                |
@@ -51,4 +51,4 @@ This provider has the following options:
 
 # Extra
 
-For more detail, see the [DevPod Documentation](https://devpod.sh/docs/managing-providers/what-are-providers).
+For more detail, see the [Devsy Documentation](https://devsy.sh/docs/managing-providers/what-are-providers).

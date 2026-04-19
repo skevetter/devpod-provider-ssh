@@ -1,5 +1,5 @@
 version: 2
-project_name: devpod-provider-ssh
+project_name: devsy-provider-ssh
 builds:
   - id: build
     hooks:

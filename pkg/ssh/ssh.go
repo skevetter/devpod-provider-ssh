@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/kballard/go-shellquote"
-	"github.com/skevetter/devpod-provider-ssh/pkg/options"
-	"github.com/skevetter/devpod/pkg/ssh"
-	"github.com/skevetter/log"
+	"github.com/devsy-org/devsy-provider-ssh/pkg/options"
+	"github.com/devsy-org/devsy/pkg/ssh"
+	"github.com/devsy-org/log"
 )
 
 type SSHProvider struct {
@@ -179,7 +179,7 @@ func copyAndExecSSHCommand(provider *SSHProvider, command string, output io.Writ
 }
 
 func copyCommandToRemote(provider *SSHProvider, command string) (string, error) {
-	script, err := os.CreateTemp("", "devpod-command-*")
+	script, err := os.CreateTemp("", "devsy-command-*")
 	if err != nil {
 		return "", err
 	}
@@ -227,11 +227,11 @@ func getSCPCommand(provider *SSHProvider, sourcefile string) ([]string, error) {
 func Init(provider *SSHProvider) error {
 	out := new(bytes.Buffer)
 	// check that we can do outputs
-	err := execSSHCommand(provider, "echo Devpod Test", out)
+	err := execSSHCommand(provider, "echo Devsy Test", out)
 	if err != nil {
-		return returnSSHError(provider, "echo Devpod Test")
+		return returnSSHError(provider, "echo Devsy Test")
 	}
-	if out.String() != "Devpod Test\n" {
+	if out.String() != "Devsy Test\n" {
 		return fmt.Errorf("error: ssh output mismatch")
 	}
 

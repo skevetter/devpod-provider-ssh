@@ -4,7 +4,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/skevetter/log"
+	"github.com/devsy-org/log"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/ssh"
 )
@@ -12,7 +12,7 @@ import (
 // NewRootCmd returns a new root command
 func NewRootCmd() *cobra.Command {
 	sshCmd := &cobra.Command{
-		Use:           "devpod-provider-ssh",
+		Use:           "devsy-provider-ssh",
 		Short:         "ssh Provider commands",
 		SilenceErrors: true,
 		SilenceUsage:  true,
