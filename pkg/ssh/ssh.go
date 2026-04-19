@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/kballard/go-shellquote"
 	"github.com/devsy-org/devsy-provider-ssh/pkg/options"
 	"github.com/devsy-org/devsy/pkg/ssh"
 	"github.com/devsy-org/log"
+	"github.com/kballard/go-shellquote"
 )
 
 type SSHProvider struct {
